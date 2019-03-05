@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Certificates.Generation;
 using Microsoft.Extensions.CommandLineUtils;
 using OpenQA.Selenium;
@@ -20,7 +21,6 @@ namespace Templates.Test.Helpers
     {
         private const string DefaultFramework = "netcoreapp3.0";
         private const string ListeningMessagePrefix = "Now listening on: ";
-        private static int Port = 5000 + new Random().Next(3000);
 
         private readonly ProcessEx _process;
         private readonly Uri _listeningUri;
@@ -134,13 +134,13 @@ namespace Templates.Test.Helpers
             return new Uri(listeningUrlString, UriKind.Absolute);
         }
 
-        public void AssertOk(string requestUrl)
+        public Task AssertOk(string requestUrl)
             => AssertStatusCode(requestUrl, HttpStatusCode.OK);
 
-        public void AssertNotFound(string requestUrl)
+        public Task AssertNotFound(string requestUrl)
             => AssertStatusCode(requestUrl, HttpStatusCode.NotFound);
 
-        public void AssertStatusCode(string requestUrl, HttpStatusCode statusCode, string acceptContentType = null)
+        public async Task AssertStatusCode(string requestUrl, HttpStatusCode statusCode, string acceptContentType = null)
         {
             var request = new HttpRequestMessage(
                 HttpMethod.Get,
@@ -151,7 +151,7 @@ namespace Templates.Test.Helpers
                 request.Headers.Add("Accept", acceptContentType);
             }
 
-            var response = _httpClient.SendAsync(request).Result;
+            var response = await _httpClient.SendAsync(request);
             Assert.Equal(statusCode, response.StatusCode);
         }
 

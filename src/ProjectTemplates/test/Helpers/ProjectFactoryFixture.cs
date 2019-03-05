@@ -72,7 +72,7 @@ $@"<Project>
                 {
                     project.Dispose();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     list.Add(e);
                 }

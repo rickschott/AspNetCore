@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.E2ETesting;
 using ProjectTemplates.Tests.Helpers;
+using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -13,8 +14,8 @@ namespace Templates.Test.SpaTemplateTest
         public AngularTemplateTest(ProjectFactoryFixture projectFactory, BrowserFixture browserFixture, ITestOutputHelper output)
             : base(projectFactory, browserFixture, output) { }
 
-        [Fact(Skip = "https://github.com/aspnet/AspNetCore-Internal/issues/1854")]
-        public void AngularTemplate_Works()
-            => SpaTemplateImpl("angular");
+        [Fact]
+        public async Task AngularTemplate_Works()
+            => await SpaTemplateImpl("angular");
     }
 }

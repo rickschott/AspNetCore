@@ -3,6 +3,7 @@
 
 using Microsoft.AspNetCore.E2ETesting;
 using ProjectTemplates.Tests.Helpers;
+using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -18,7 +19,7 @@ namespace Templates.Test
         public Project Project { get; }
 
         [Fact]
-        public void EmptyWebTemplate()
+        public async Task EmptyWebTemplate()
         {
             Project.RunDotNetNew("web");
 
@@ -26,7 +27,7 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/");
+                    await aspNetProcess.AssertOk("/");
                 }
             }
         }

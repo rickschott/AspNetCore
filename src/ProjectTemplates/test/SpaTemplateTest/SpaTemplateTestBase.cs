@@ -6,6 +6,7 @@ using OpenQA.Selenium;
 using ProjectTemplates.Tests.Helpers;
 using System.IO;
 using System.Net;
+using System.Threading.Tasks;
 using Templates.Test.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -30,7 +31,7 @@ namespace Templates.Test.SpaTemplateTest
         // Rather than using [Theory] to pass each of the different values for 'template',
         // it's important to distribute the SPA template tests over different test classes
         // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected void SpaTemplateImpl(string template, bool noHttps = false)
+        protected async Task SpaTemplateImpl(string template, bool noHttps = false)
         {
             Project.RunDotNetNew(template, noHttps: noHttps);
 
@@ -46,15 +47,15 @@ namespace Templates.Test.SpaTemplateTest
             Npm.RestoreWithRetry(Output, clientAppSubdirPath);
             Npm.Test(Output, clientAppSubdirPath);
 
-            TestApplication(publish: false);
-            TestApplication(publish: true);
+            await TestApplication(publish: false);
+            await TestApplication(publish: true);
         }
 
-        private void TestApplication(bool publish)
+        private async Task TestApplication(bool publish)
         {
             using (var aspNetProcess = Project.StartAspNetProcess(publish))
             {
-                aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
+                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
 
                 if (BrowserFixture.IsHostAutomationSupported())
                 {
