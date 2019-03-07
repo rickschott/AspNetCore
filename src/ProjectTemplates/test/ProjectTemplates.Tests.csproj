@@ -21,6 +21,24 @@
   </ItemGroup>
 
   <ItemGroup>
+    <TemplateFileInput Include="$(MSBuildThisFileDirectory)..\Web.ProjectTemplates\content\**\*" />
+    <TemplateFileInput Include="$(MSBuildThisFileDirectory)..\Web.ProjectTemplates\*.csproj.in" />
+    <TemplateFileInput Include="$(MSBuildThisFileDirectory)..\Web.Spa.ProjectTemplates\content\**\*" />
+    <TemplateFileInput Include="$(MSBuildThisFileDirectory)..\Web.Spa.ProjectTemplates\*.csproj.in" />
+    <TemplateFileOutput Include="$(RepoRoot)artifacts\packages\$(Configuration)\Shipping\Microsoft.DotNet.Web*.ProjectTemplates.*.nupkg" />
+  </ItemGroup>
+
+  <Target
+    Name="EnsureTemplatesAreRebuilt"
+    BeforeTargets="Build"
+    Inputs="@(TemplateFileInput)"
+    Outputs="@(TemplateFileOutput)">
+    <Message Importance="high" Text="Template packages out of date. Rebuilding the templates" />
+    <Exec Command="dotnet pack" WorkingDirectory="$(MSBuildThisFileDirectory)..\Web.ProjectTemplates" />
+    <Exec Command="dotnet pack" WorkingDirectory="$(MSBuildThisFileDirectory)..\Web.Spa.ProjectTemplates" />
+  </Target>
+  
+  <ItemGroup>
     <Reference Include="AngleSharp" />
     <Reference Include="Microsoft.Extensions.CommandLineUtils.Sources" />
   </ItemGroup>
