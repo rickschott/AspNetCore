@@ -16,5 +16,13 @@ namespace Templates.Test.SpaTemplateTest
         [Fact(Skip = "https://github.com/aspnet/AspNetCore-Internal/issues/1854")]
         public void AngularTemplate_Works()
             => SpaTemplateImpl("angular");
+
+        [Fact]
+        public void AngularTemplate_IndividualAuth_Works()
+            => SpaTemplateImpl_IndividualAuth("angular");
+
+        [Fact]
+        public void AngularTemplate_IndividualAuth_Works_LocalDb()
+            => SpaTemplateImpl_IndividualAuth("angular", useLocalDb: true);
     }
 }
