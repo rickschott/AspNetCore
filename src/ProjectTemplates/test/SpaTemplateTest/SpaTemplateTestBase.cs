@@ -93,7 +93,7 @@ namespace Templates.Test.SpaTemplateTest
         {
             // Hijack here the config file to use the development key during publish.
             var appSettings = JObject.Parse(File.ReadAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.json")));
-            var appSettingsDevelopment = JObject.Parse(File.ReadAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.development.json")));
+            var appSettingsDevelopment = JObject.Parse(File.ReadAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.Development.json")));
             ((JObject)appSettings["IdentityServer"]).Merge(appSettingsDevelopment["IdentityServer"]);
             ((JObject)appSettings["IdentityServer"]).Merge(new
             {
