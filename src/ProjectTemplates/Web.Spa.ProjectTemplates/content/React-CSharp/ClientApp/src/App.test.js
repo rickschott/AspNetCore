@@ -5,9 +5,9 @@ import App from './App';
 
 it('renders without crashing', async () => {
   const div = document.createElement('div');
-  const promise = new Promise((resolve) => ReactDOM.render(
+  ReactDOM.render(
     <MemoryRouter>
       <App />
-    </MemoryRouter>, div, resolve));
-  await promise;
+    </MemoryRouter>, div);
+  await new Promise(resolve => setTimeout(resolve, 1000));
 });
