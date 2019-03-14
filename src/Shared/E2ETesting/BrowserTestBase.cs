@@ -2,6 +2,7 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System.Threading;
+using System.Threading.Tasks;
 using OpenQA.Selenium;
 using Xunit;
 using Xunit.Abstractions;
@@ -9,23 +10,37 @@ using Xunit.Abstractions;
 namespace Microsoft.AspNetCore.E2ETesting
 {
     [CaptureSeleniumLogs]
-    public class BrowserTestBase : IClassFixture<BrowserFixture>
+    public class BrowserTestBase : IClassFixture<BrowserFixture>, IAsyncLifetime
     {
         private static readonly AsyncLocal<IWebDriver> _browser = new AsyncLocal<IWebDriver>();
         private static readonly AsyncLocal<ILogs> _logs = new AsyncLocal<ILogs>();
         private static readonly AsyncLocal<ITestOutputHelper> _output = new AsyncLocal<ITestOutputHelper>();
 
-        public static IWebDriver Browser => _browser.Value;
+        public BrowserTestBase(BrowserFixture browserFixture, ITestOutputHelper output)
+        {
+            Fixture = browserFixture;
+            _output.Value = output;
+        }
+
+        public static IWebDriver Browser { get; } = _browser.Value;
 
         public static ILogs Logs => _logs.Value;
 
         public static ITestOutputHelper Output => _output.Value;
 
-        public BrowserTestBase(BrowserFixture browserFixture, ITestOutputHelper output)
+        public BrowserFixture Fixture { get; }
+
+        public Task DisposeAsync()
         {
-            _browser.Value = browserFixture.Browser;
-            _logs.Value = browserFixture.Logs;
-            _output.Value = output;
+            _browser.Value.Dispose();
+            return Task.CompletedTask;
+        }
+
+        public  async Task InitializeAsync()
+        {
+            var (browser, logs) = await Fixture.CreateBrowserAsync(Output);
+            _browser.Value = browser;
+            _logs.Value = logs;
         }
     }
 }

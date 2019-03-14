@@ -2,54 +2,25 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Threading.Tasks;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Chrome;
 using OpenQA.Selenium.Remote;
 using Xunit.Abstractions;
-using Xunit.Sdk;
 
 namespace Microsoft.AspNetCore.E2ETesting
 {
-    public class BrowserFixture : IDisposable
+    public class BrowserFixture
     {
         public BrowserFixture(IMessageSink diagnosticsMessageSink)
         {
             DiagnosticsMessageSink = diagnosticsMessageSink;
-
-            if (!IsHostAutomationSupported())
-            {
-                DiagnosticsMessageSink.OnMessage(new DiagnosticMessage("Host does not support browser automation."));
-                return;
-            }
-
-            var opts = new ChromeOptions();
-
-            // Comment this out if you want to watch or interact with the browser (e.g., for debugging)
-            opts.AddArgument("--headless");
-
-            // Log errors
-            opts.SetLoggingPreference(LogType.Browser, LogLevel.All);
-
-            // On Windows/Linux, we don't need to set opts.BinaryLocation
-            // But for Travis Mac builds we do
-            var binaryLocation = Environment.GetEnvironmentVariable("TEST_CHROME_BINARY");
-            if (!string.IsNullOrEmpty(binaryLocation))
-            {
-                opts.BinaryLocation = binaryLocation;
-                DiagnosticsMessageSink.OnMessage(new DiagnosticMessage($"Set {nameof(ChromeOptions)}.{nameof(opts.BinaryLocation)} to {binaryLocation}"));
-            }
-
-            var driver = new RemoteWebDriver(SeleniumStandaloneServer.Instance.Uri, opts);
-            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(1);
-            Browser = driver;
-            Logs = new RemoteLogs(driver);
         }
 
-        public IWebDriver Browser { get; }
-
-        public ILogs Logs { get; }
+        public ILogs Logs { get; private set; }
 
         public IMessageSink DiagnosticsMessageSink { get; }
 
@@ -77,12 +48,37 @@ namespace Microsoft.AspNetCore.E2ETesting
             }
         }
 
-        public void Dispose()
+        public async Task<(IWebDriver, ILogs)> CreateBrowserAsync(ITestOutputHelper output)
         {
-            if (Browser != null)
+            if (!IsHostAutomationSupported())
             {
-                Browser.Dispose();
+                throw new InvalidOperationException("Host does not support browser automation.");
             }
+
+            var opts = new ChromeOptions();
+
+            // Comment this out if you want to watch or interact with the browser (e.g., for debugging)
+            opts.AddArgument("--headless");
+
+            // Log errors
+            opts.SetLoggingPreference(LogType.Browser, LogLevel.All);
+
+            // On Windows/Linux, we don't need to set opts.BinaryLocation
+            // But for Travis Mac builds we do
+            var binaryLocation = Environment.GetEnvironmentVariable("TEST_CHROME_BINARY");
+            if (!string.IsNullOrEmpty(binaryLocation))
+            {
+                opts.BinaryLocation = binaryLocation;
+                output.WriteLine($"Set {nameof(ChromeOptions)}.{nameof(opts.BinaryLocation)} to {binaryLocation}");
+            }
+
+            var instance = await SeleniumStandaloneServer.GetInstanceAsync(output);
+
+            var driver = new RemoteWebDriver(instance.Uri, opts);
+            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(1);
+            var logs = new RemoteLogs(driver);
+
+            return (driver, logs);
         }
     }
 }

@@ -11,22 +11,43 @@ using System.Text;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Testing;
 using Microsoft.Extensions.Internal;
+using Xunit.Abstractions;
 
 namespace Microsoft.AspNetCore.E2ETesting
 {
     class SeleniumStandaloneServer
     {
-        private static readonly TimeSpan Timeout = TimeSpan.FromSeconds(30);
-        private static Lazy<SeleniumStandaloneServer> _instance = new Lazy<SeleniumStandaloneServer>(() => new SeleniumStandaloneServer());
+        private static SeleniumStandaloneServer _instance = null;
+        private static Task<SeleniumStandaloneServer> _instanceTask = null;
+        private static object _lock = new object();
+
+        public SeleniumStandaloneServer(Uri uri)
+        {
+            Uri = uri;
+        }
 
         public Uri Uri { get; }
 
-        public static SeleniumStandaloneServer Instance => _instance.Value;
+        public static async Task<SeleniumStandaloneServer> GetInstanceAsync(ITestOutputHelper output)
+        {
+            lock (_lock)
+            {
+                _instanceTask = CreateInstance(output);
+            }
 
-        private SeleniumStandaloneServer()
+            var instance = await _instanceTask;
+            lock (_lock)
+            {
+                _instance = instance;
+            }
+
+            return _instance;
+        }
+
+        private static async Task<SeleniumStandaloneServer> CreateInstance(ITestOutputHelper output)
         {
             var port = FindAvailablePort();
-            Uri = new UriBuilder("http", "localhost", port, "/wd/hub").Uri;
+            var uri = new UriBuilder("http", "localhost", port, "/wd/hub").Uri;
 
             var psi = new ProcessStartInfo
             {
@@ -44,7 +65,6 @@ namespace Microsoft.AspNetCore.E2ETesting
 
             var process = Process.Start(psi);
 
-            var builder = new StringBuilder();
             process.OutputDataReceived += LogOutput;
             process.ErrorDataReceived += LogOutput;
 
@@ -63,59 +83,36 @@ namespace Microsoft.AspNetCore.E2ETesting
 
             void LogOutput(object sender, DataReceivedEventArgs e)
             {
-                lock (builder)
+                lock (output)
                 {
-                    builder.AppendLine(e.Data);
+                    output.WriteLine(e.Data);
                 }
             }
 
-            var waitForStart = Task.Run(async () =>
+            var httpClient = new HttpClient
             {
-                var httpClient = new HttpClient
-                {
-                    Timeout = TimeSpan.FromSeconds(1),
-                };
+                Timeout = TimeSpan.FromSeconds(1),
+            };
 
-                var retries = 0;
-                while (retries++ < 30)
+            var retries = 0;
+            while (retries++ < 30)
+            {
+                try
                 {
-                    try
+                    var response = await httpClient.GetAsync(uri);
+                    if (response.StatusCode == HttpStatusCode.OK)
                     {
-                        var responseTask = httpClient.GetAsync(Uri);
-
-                        var response = await responseTask;
-                        if (response.StatusCode == HttpStatusCode.OK)
-                        {
-                            return;
-                        }
+                        return new SeleniumStandaloneServer(uri);
                     }
-                    catch (OperationCanceledException)
-                    {
-
-                    }
-                    await Task.Delay(1000);
                 }
-
-                throw new Exception("Failed to launch the server");
-            });
-
-            try
-            {
-                // Wait in intervals instead of indefinitely to prevent thread starvation.
-                while (!waitForStart.TimeoutAfter(Timeout).Wait(1000))
+                catch (OperationCanceledException)
                 {
                 }
-            }
-            catch (Exception ex)
-            {
-                string output;
-                lock (builder)
-                {
-                    output = builder.ToString();
-                }
 
-                throw new InvalidOperationException($"Failed to start selenium sever. {System.Environment.NewLine}{output}", ex.GetBaseException());
+                await Task.Delay(1000);
             }
+
+            throw new Exception("Failed to launch the server");
         }
 
         static int FindAvailablePort()

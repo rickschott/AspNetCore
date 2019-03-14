@@ -112,7 +112,11 @@ namespace Templates.Test.Helpers
 
             var templatePackages = builtPackages
                 .Where(b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
-            Assert.Equal(4, templatePackages.Count());
+
+            Assert.True(
+                4 == templatePackages.Count(),
+                string.Join(Environment.NewLine, builtPackages));
+
             foreach (var packagePath in templatePackages)
             {
                 output.WriteLine($"Installing templates package {packagePath}...");
