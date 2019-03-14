@@ -34,34 +34,17 @@ namespace ProjectTemplates.Tests.Helpers
 
             _projects.Add(project);
 
-            var assemblyPath = GetType().GetTypeInfo().Assembly.CodeBase;
-            var assemblyUri = new Uri(assemblyPath, UriKind.Absolute);
-            var basePath = Path.GetDirectoryName(assemblyUri.LocalPath);
-            project.TemplateOutputDir = Path.Combine(basePath, "TestTemplates", project.ProjectName);
-            Directory.CreateDirectory(project.TemplateOutputDir);
-
-            // We don't want any of the host repo's build config interfering with
-            // how the test project is built, so disconnect it from the
-            // Directory.Build.props/targets context
-
-            var templatesTestsPropsFilePath = Path.Combine(basePath, "TemplateTests.props");
-            var directoryBuildPropsContent =
-$@"<Project>
-    <Import Project=""Directory.Build.After.props"" Condition=""Exists('Directory.Build.After.props')"" />
-</Project>";
-            File.WriteAllText(Path.Combine(project.TemplateOutputDir, "Directory.Build.props"), directoryBuildPropsContent);
-
-            // TODO: remove this once we get a newer version of the SDK which supports an implicit FrameworkReference
-            // cref https://github.com/aspnet/websdk/issues/424
-            var directoryBuildTargetsContent =
-$@"<Project>
-    <Import Project=""{templatesTestsPropsFilePath}"" />
-</Project>";
-
-            File.WriteAllText(Path.Combine(project.TemplateOutputDir, "Directory.Build.targets"), directoryBuildTargetsContent);
+            var assemblyPath = GetType().Assembly;
+            string basePath = GetTemplateFolderBasePath(assemblyPath);
+            project.TemplateOutputDir = Path.Combine(basePath, project.ProjectName);
 
             return project;
         }
+
+        private static string GetTemplateFolderBasePath(Assembly assembly) =>
+            assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Single(a => a.Key == "TestTemplateCreationFolder")
+                .Value;
 
         public void Dispose()
         {
@@ -117,11 +100,13 @@ $@"<Project>
                 args += $" --no-https";
             }
 
+            args += $" -o {TemplateOutputDir}";
+
             // Only run one instance of 'dotnet new' at once, as a workaround for
             // https://github.com/aspnet/templating/issues/63
             lock (DotNetNewLock)
             {
-                ProcessEx.Run(Output, TemplateOutputDir, DotNetMuxer.MuxerPathOrDefault(), args).WaitForExit(assertSuccess: true);
+                ProcessEx.Run(Output, AppContext.BaseDirectory, DotNetMuxer.MuxerPathOrDefault(), args).WaitForExit(assertSuccess: true);
             }
         }
 

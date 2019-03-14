@@ -89,6 +89,7 @@ namespace Microsoft.AspNetCore.ApiAuthorization.IdentityServer
                     codes.HasKey(x => new { x.UserCode });
 
                     codes.HasIndex(x => x.DeviceCode).IsUnique();
+                    codes.HasIndex(x => x.UserCode).IsUnique();
                 });
             }
     }
