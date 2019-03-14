@@ -77,16 +77,16 @@ namespace Templates.Test.SpaTemplateTest
                 Assert.Contains(".db", projectFileContents);
             }
 
-            // Project.RunDotNetEfCreateMigration(template);
+            Project.RunDotNetEfCreateMigration(template);
 
-            // Project.AssertEmptyMigration(template);
+            Project.AssertEmptyMigration(template);
 
 
-            TestApplication(publish: false);
+            TestApplication(publish: false, visitFetchData: false);
 
             UpdateSettingsForPublish();
 
-            TestApplication(publish: true);
+            TestApplication(publish: true, visitFetchData: false);
         }
 
         private void UpdateSettingsForPublish()
@@ -109,7 +109,7 @@ namespace Templates.Test.SpaTemplateTest
             File.WriteAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.json"), testAppSettings);
         }
 
-        private void TestApplication(bool publish)
+        private void TestApplication(bool publish, bool visitFetchData = true)
         {
             using (var aspNetProcess = Project.StartAspNetProcess(publish))
             {
@@ -118,12 +118,12 @@ namespace Templates.Test.SpaTemplateTest
                 if (BrowserFixture.IsHostAutomationSupported())
                 {
                     aspNetProcess.VisitInBrowser(Browser);
-                    TestBasicNavigation();
+                    TestBasicNavigation(visitFetchData);
                 }
             }
         }
 
-        private void TestBasicNavigation()
+        private void TestBasicNavigation(bool visitFetchData)
         {
             Browser.WaitForElement("ul");
             // <title> element gets project ID injected into it during template execution
@@ -144,16 +144,19 @@ namespace Templates.Test.SpaTemplateTest
             Browser.Click(counterComponent, "button");
             Assert.Equal("1", counterComponent.GetText("strong"));
 
-            // Can navigate to the 'fetch data' page
-            Browser.Click(By.PartialLinkText("Fetch data"));
-            Browser.WaitForUrl("fetch-data");
-            Assert.Equal("Weather forecast", Browser.GetText("h1"));
+            if (visitFetchData)
+            {
+                // Can navigate to the 'fetch data' page
+                Browser.Click(By.PartialLinkText("Fetch data"));
+                Browser.WaitForUrl("fetch-data");
+                Assert.Equal("Weather forecast", Browser.GetText("h1"));
 
-            // Asynchronously loads and displays the table of weather forecasts
-            var fetchDataComponent = Browser.FindElement("h1").Parent();
-            Browser.WaitForElement("table>tbody>tr");
-            var table = Browser.FindElement(fetchDataComponent, "table", timeoutSeconds: 5);
-            Assert.Equal(5, table.FindElements(By.CssSelector("tbody tr")).Count);
+                // Asynchronously loads and displays the table of weather forecasts
+                var fetchDataComponent = Browser.FindElement("h1").Parent();
+                Browser.WaitForElement("table>tbody>tr");
+                var table = Browser.FindElement(fetchDataComponent, "table", timeoutSeconds: 5);
+                Assert.Equal(5, table.FindElements(By.CssSelector("tbody tr")).Count); 
+            }
         }
     }
 }
