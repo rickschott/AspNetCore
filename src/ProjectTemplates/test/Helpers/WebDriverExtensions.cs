@@ -8,6 +8,12 @@ namespace Templates.Test.Helpers
 {
     public static class WebDriverExtensions
     {
+        // Maximum time any action performed by WebDriver will wait before failing.
+        // Any action will have to be completed in at most 10 seconds.
+        // Providing a smaller value won't improve the speed of the tests in any
+        // significant way and will make them more prone to fail on slower drivers.
+        internal const int DefaultMaxWaitTimeInSeconds = 10;
+
         public static string GetText(this ISearchContext driver, string cssSelector)
         {
             return driver.FindElement(By.CssSelector(cssSelector)).Text;
@@ -70,19 +76,19 @@ namespace Templates.Test.Helpers
 
         public static void WaitForUrl(this IWebDriver browser, string expectedUrl)
         {
-            new WebDriverWait(browser, TimeSpan.FromSeconds(WebDriverFactory.DefaultMaxWaitTimeInSeconds))
+            new WebDriverWait(browser, TimeSpan.FromSeconds(DefaultMaxWaitTimeInSeconds))
                 .Until(driver => driver.Url.Contains(expectedUrl, StringComparison.OrdinalIgnoreCase));
         }
 
         public static void WaitForElement(this IWebDriver browser, string expectedElementCss)
         {
-            new WebDriverWait(browser, TimeSpan.FromSeconds(WebDriverFactory.DefaultMaxWaitTimeInSeconds))
+            new WebDriverWait(browser, TimeSpan.FromSeconds(DefaultMaxWaitTimeInSeconds))
                 .Until(driver => driver.FindElements(By.CssSelector(expectedElementCss)).Count > 0);
         }
 
         public static void WaitForText(this IWebDriver browser, string cssSelector, string expectedText)
         {
-            new WebDriverWait(browser, TimeSpan.FromSeconds(WebDriverFactory.DefaultMaxWaitTimeInSeconds))
+            new WebDriverWait(browser, TimeSpan.FromSeconds(DefaultMaxWaitTimeInSeconds))
                 .Until(driver => {
                     try
                     {

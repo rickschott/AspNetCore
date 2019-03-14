@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Microsoft.Extensions.CommandLineUtils;
 using Xunit;
 using Xunit.Abstractions;
@@ -51,7 +52,9 @@ namespace Templates.Test.Helpers
             "Microsoft.DotNet.Web.Spa.ProjectTemplates.3.0"
         };
 
-        public static string CustomHivePath { get; } = Path.Combine(AppContext.BaseDirectory, ".templateengine");
+        public static string CustomHivePath { get; } = typeof(TemplatePackageInstaller)
+            .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Single(s => s.Key == "CustomTemplateHivePath").Value;
 
         public static void EnsureTemplatingEngineInitialized(ITestOutputHelper output)
         {
@@ -102,8 +105,13 @@ namespace Templates.Test.Helpers
             VerifyCannotFindTemplate(output, "reactredux");
             VerifyCannotFindTemplate(output, "angular");
 
-            var builtPackages = MondoHelpers.GetNupkgFiles();
-            var templatePackages = builtPackages.Where(b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
+            var builtPackages = typeof(TemplatePackageInstaller).Assembly
+            .GetCustomAttributes<AssemblyMetadataAttribute>()
+            .Where(a => a.Key == "TemplatePackageMetadata").Select(kvp => kvp.Value)
+            .ToArray();
+
+            var templatePackages = builtPackages
+                .Where(b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
             Assert.Equal(4, templatePackages.Count());
             foreach (var packagePath in templatePackages)
             {

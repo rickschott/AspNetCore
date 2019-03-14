@@ -59,13 +59,48 @@
     <PropertyGroup>
       <TestTemplateCreationFolder>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)$([MSBuild]::EnsureTrailingSlash('$(OutputPath)$(TestTemplateCreationFolder)'))'))</TestTemplateCreationFolder>
       <TestTemplateTestsProps>$(TestTemplateCreationFolder)$(TestTemplateTestsProps)</TestTemplateTestsProps>
+      <CustomTemplateHivePath>$(TestTemplateCreationFolder)\.templateengine\$([System.Guid]::NewGuid())\</CustomTemplateHivePath>
     </PropertyGroup>
 
     <ItemGroup>
-    <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
-      <_Parameter1>TestTemplateCreationFolder</_Parameter1>
-      <_Parameter2>$(TestTemplateCreationFolder)</_Parameter2>
-    </AssemblyAttribute>      
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ItemTemplates*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ProjectTemplates.2.1*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Test.ProjectTemplates.2.1*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Client.ItemTemplates=*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ItemTemplates*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.1.x*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.0*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.1*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.2*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.3.0*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Spa.ProjectTemplates*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Spa.ProjectTemplates.2.2*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Spa.ProjectTemplates.3.0*.nupkg" />
+
+      <AllPackagesMetadata Include="$(ArtifactsShippingPackagesDir)*.nupkg" />
+      <AllPackagesMetadata Include="$(ArtifactsNonShippingPackagesDir)*.nupkg" />
+    </ItemGroup>
+
+    <ItemGroup>
+
+      <AssemblyAttribute Include="@(TemplatePackageMetadata->'System.Reflection.AssemblyMetadataAttribute')">
+        <_Parameter1>TemplatePackageMetadata</_Parameter1>
+        <_Parameter2>%(TemplatePackageMetadata.Identity)</_Parameter2>
+      </AssemblyAttribute>
+
+      <AssemblyAttribute Include="@(AllPackagesMetadata->'System.Reflection.AssemblyMetadataAttribute')">
+        <_Parameter1>AllPackagesMetadata</_Parameter1>
+        <_Parameter2>%(AllPackagesMetadata.Identity)</_Parameter2>
+      </AssemblyAttribute>
+
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>TestTemplateCreationFolder</_Parameter1>
+        <_Parameter2>$(TestTemplateCreationFolder)</_Parameter2>
+      </AssemblyAttribute>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>CustomTemplateHivePath</_Parameter1>
+        <_Parameter2>$(CustomTemplateHivePath)</_Parameter2>
+      </AssemblyAttribute>
     </ItemGroup>
 
     <Message Importance="high" Text="Preparing environment for tests" />
@@ -78,7 +113,7 @@
     </ItemGroup>
 
     <Delete Files="@(_ExistingFilesFromLastRun)" ContinueOnError="true" />
-    
+
     <Removedir Directories="$(TestTemplateCreationFolder)" Condition="Exists('$(TestTemplateCreationFolder)')" ContinueOnError="true">
       <Output TaskParameter="RemovedDirectories" ItemName="_CleanedUpDirectories" />
     </Removedir>
@@ -87,7 +122,7 @@
     </Removedir>
 
     <Message Importance="high" Text="Removed directory %(_CleanedUpDirectories.Identity)" />
-    
+
     <MakeDir Directories="$(TestTemplateCreationFolder)">
       <Output TaskParameter="DirectoriesCreated" ItemName="_CreatedDirectories" />
     </MakeDir>
@@ -108,9 +143,9 @@
       OutputPath="$(TestTemplateCreationFolder)Directory.Build.props" />
 
     <Delete Files="$(TestTemplateTestsProps)" />
-  
+
   </Target>
-  
+
   <!-- Shared testing infrastructure for running E2E tests using selenium -->
   <Import Project="$(SharedSourceRoot)E2ETesting\E2ETesting.targets" />
 
