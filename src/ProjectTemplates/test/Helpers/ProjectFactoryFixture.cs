@@ -114,7 +114,14 @@ namespace ProjectTemplates.Tests.Helpers
         {
             lock (DotNetNewLock)
             {
-                ProcessEx.Run(Output, TemplateOutputDir, DotNetMuxer.MuxerPathOrDefault(), arguments + $" --debug:custom-hive \"{TemplatePackageInstaller.CustomHivePath}\"").WaitForExit(assertSuccess: true);
+                ProcessEx.Run(
+                    Output,
+                    AppContext.BaseDirectory,
+                    DotNetMuxer.MuxerPathOrDefault(),
+                    arguments +
+                        $" --debug:custom-hive \"{TemplatePackageInstaller.CustomHivePath}\"" +
+                        $" -o {TemplateOutputDir}")
+                .WaitForExit(assertSuccess: true);
             }
         }
 

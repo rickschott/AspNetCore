@@ -59,14 +59,14 @@
     <PropertyGroup>
       <TestTemplateCreationFolder>$([System.IO.Path]::GetFullPath('$(MSBuildThisFileDirectory)$([MSBuild]::EnsureTrailingSlash('$(OutputPath)$(TestTemplateCreationFolder)'))'))</TestTemplateCreationFolder>
       <TestTemplateTestsProps>$(TestTemplateCreationFolder)$(TestTemplateTestsProps)</TestTemplateTestsProps>
-      <CustomTemplateHivePath>$(TestTemplateCreationFolder)\.templateengine\$([System.Guid]::NewGuid())\</CustomTemplateHivePath>
+      <CustomTemplateHivePath>$(TestTemplateCreationFolder)\Hives\$([System.Guid]::NewGuid())\.templateengine</CustomTemplateHivePath>
     </PropertyGroup>
 
     <ItemGroup>
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ItemTemplates*.nupkg" />
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ProjectTemplates.2.1*.nupkg" />
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Test.ProjectTemplates.2.1*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Client.ItemTemplates=*.nupkg" />
+      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Client.ItemTemplates*.nupkg" />
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ItemTemplates*.nupkg" />
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.1.x*.nupkg" />
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.0*.nupkg" />
