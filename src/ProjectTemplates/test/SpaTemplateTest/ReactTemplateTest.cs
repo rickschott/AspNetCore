@@ -16,7 +16,7 @@ namespace Templates.Test.SpaTemplateTest
         {
         }
 
-        [Fact]
+        [Fact(Skip = "This test is flaky. Using https://github.com/aspnet/AspNetCore-Internal/issues/1745 to track re-enabling this.")]
         public async Task ReactTemplate_Works_NetCore()
             => await SpaTemplateImpl("react");
     }

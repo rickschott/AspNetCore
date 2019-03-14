@@ -14,7 +14,7 @@ namespace Templates.Test.SpaTemplateTest
         public AngularTemplateTest(ProjectFactoryFixture projectFactory, BrowserFixture browserFixture, ITestOutputHelper output)
             : base(projectFactory, browserFixture, output) { }
 
-        [Fact]
+        [Fact(Skip = "https://github.com/aspnet/AspNetCore-Internal/issues/1854")]
         public async Task AngularTemplate_Works()
             => await SpaTemplateImpl("angular");
     }
