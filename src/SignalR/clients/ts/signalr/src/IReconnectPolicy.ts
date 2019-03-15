@@ -5,10 +5,12 @@
 export interface IReconnectPolicy {
     /** Called after the transport loses the connection.
      *
-     * @param {number} previousRetryCount The number of reconnect attempts that have failed since the transport last lost the connection.
+     * @param {number} previousRetryCount The number of failed reconnect attempts so far.
+     *
+     * @param {number} elapsedMilliseconds The amount of time in milliseconds spent reconnecting so far.
      *
      * @returns {number | null} The amount of time to wait before the next reconnect attempt. `null` tells the client to stop retrying and close.
      */
     // TODO: add timeElapsedReconnecting parameter
-    nextRetryDelayInMilliseconds(previousRetryCount: number): number | null;
+    nextRetryDelayInMilliseconds(previousRetryCount: number, elapsedMilliseconds: number): number | null;
 }

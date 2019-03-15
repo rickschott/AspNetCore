@@ -3,7 +3,7 @@
 
 import { IReconnectPolicy } from "./IReconnectPolicy";
 
-const DEFAULT_RETRY_DELAYS_IN_MILLISECONDS = [0, 2000, 10000];
+const DEFAULT_RETRY_DELAYS_IN_MILLISECONDS = [0, 2000, 10000, 30000];
 
 /** @private */
 export class DefaultReconnectPolicy implements IReconnectPolicy {
