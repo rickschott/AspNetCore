@@ -135,11 +135,13 @@ export class HttpConnection implements IConnection {
 
     public async stop(error?: Error): Promise<void> {
         this.connectionState = ConnectionState.Disconnected;
+        // allowReconnect: false
         await this.stopTransport(false, error);
     }
 
     public async connectionLost(error: Error) {
         try {
+            // allowReconnect: true
             await this.stopTransport(true, error);
         } catch (e) {
             this.connectionState = ConnectionState.Disconnected;
@@ -434,7 +436,7 @@ export class HttpConnection implements IConnection {
         }
 
         if (error) {
-            this.logger.log(LogLevel.Warning, `Connection reconnecting because of error '${error}'.`);
+            this.logger.log(LogLevel.Information, `Connection reconnecting because of error '${error}'.`);
         } else {
             this.logger.log(LogLevel.Information, "Connection reconnecting.");
         }
