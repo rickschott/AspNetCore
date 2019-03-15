@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+import { DefaultReconnectPolicy } from "./DefaultReconnectPolicy";
 import { HttpConnection } from "./HttpConnection";
 import { HubConnection } from "./HubConnection";
 import { IHttpConnectionOptions } from "./IHttpConnectionOptions";
@@ -85,7 +86,7 @@ export class HubConnectionBuilder {
         // Flow-typing knows where it's at. Since HttpTransportType is a number and IHttpConnectionOptions is guaranteed
         // to be an object, we know (as does TypeScript) this comparison is all we need to figure out which overload was called.
         if (typeof transportTypeOrOptions === "object") {
-            this.httpConnectionOptions = transportTypeOrOptions;
+            this.httpConnectionOptions = {...this.httpConnectionOptions, ...transportTypeOrOptions};
         } else {
             this.httpConnectionOptions = {
                 transport: transportTypeOrOptions,
@@ -103,6 +104,19 @@ export class HubConnectionBuilder {
         Arg.isRequired(protocol, "protocol");
 
         this.protocol = protocol;
+        return this;
+    }
+
+     /** Configures the {@link @aspnet/signalr.HubConnection} to automatically attempt to reconnect if the connection is lost. */
+    public withAutomaticReconnect(): HubConnectionBuilder {
+        if (this.httpConnectionOptions === "object") {
+            this.httpConnectionOptions.reconnectPolicy = new DefaultReconnectPolicy();
+        } else {
+            this.httpConnectionOptions = {
+                reconnectPolicy: new DefaultReconnectPolicy(),
+            };
+        }
+
         return this;
     }
 

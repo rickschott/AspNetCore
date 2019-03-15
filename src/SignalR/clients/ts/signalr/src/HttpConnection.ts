@@ -6,6 +6,7 @@ import { HttpClient } from "./HttpClient";
 import { IConnection } from "./IConnection";
 import { IHttpConnectionOptions } from "./IHttpConnectionOptions";
 import { ILogger, LogLevel } from "./ILogger";
+import { IReconnectPolicy } from "./IReconnectPolicy";
 import { HttpTransportType, ITransport, TransferFormat } from "./ITransport";
 import { LongPollingTransport } from "./LongPollingTransport";
 import { ServerSentEventsTransport } from "./ServerSentEventsTransport";
@@ -16,6 +17,7 @@ import { WebSocketTransport } from "./WebSocketTransport";
 const enum ConnectionState {
     Connecting,
     Connected,
+    Reconnecting,
     Disconnected,
 }
 
@@ -54,6 +56,7 @@ export class HttpConnection implements IConnection {
     private readonly logger: ILogger;
     private readonly options: IHttpConnectionOptions;
     private transport?: ITransport;
+    private transferFormat?: TransferFormat;
     private startPromise?: Promise<void>;
     private stopError?: Error;
     private accessTokenFactory?: () => string | Promise<string>;
@@ -61,6 +64,8 @@ export class HttpConnection implements IConnection {
     public readonly features: any = {};
     public onreceive: ((data: string | ArrayBuffer) => void) | null;
     public onclose: ((e?: Error) => void) | null;
+    public onreconnecting: ((e?: Error) => void) | null;
+    public onreconnected: ((e?: Error) => void) | null;
 
     constructor(url: string, options: IHttpConnectionOptions = {}) {
         Arg.isRequired(url, "url");
@@ -92,6 +97,8 @@ export class HttpConnection implements IConnection {
         this.options = options;
         this.onreceive = null;
         this.onclose = null;
+        this.onreconnecting = null;
+        this.onreconnected = null;
     }
 
     public start(): Promise<void>;
@@ -108,6 +115,7 @@ export class HttpConnection implements IConnection {
         }
 
         this.connectionState = ConnectionState.Connecting;
+        this.transferFormat = transferFormat;
 
         this.startPromise = this.startInternal(transferFormat);
         return this.startPromise;
@@ -167,7 +175,7 @@ export class HttpConnection implements IConnection {
                     negotiateResponse = await this.getNegotiationResponse(url);
                     // the user tries to stop the connection when it is being started
                     if (this.connectionState === ConnectionState.Disconnected) {
-                        return;
+                        return Promise.reject(new Error("The connection was stopped while connecting."));
                     }
 
                     if (negotiateResponse.error) {
@@ -205,14 +213,24 @@ export class HttpConnection implements IConnection {
             }
 
             this.transport!.onreceive = this.onreceive;
-            this.transport!.onclose = (e) => this.stopConnection(e);
 
-            // only change the state if we were connecting to not overwrite
-            // the state if the connection is already marked as Disconnected
-            this.changeState(ConnectionState.Connecting, ConnectionState.Connected);
+            if (!this.options.reconnectPolicy) {
+                this.transport!.onclose = (e) => this.stopConnection(e);
+            } else {
+                this.transport!.onclose = (e) => this.reconnect(e);
+            }
+
+            // Only change the state if we were connecting or reconnecting to not overwrite
+            // the state if the connection is already marked as Disconnected.
+            if (this.connectionState === ConnectionState.Connecting || this.connectionState === ConnectionState.Reconnecting) {
+                this.connectionState = ConnectionState.Connected;
+            }
         } catch (e) {
-            this.logger.log(LogLevel.Error, "Failed to start the connection: " + e);
-            this.connectionState = ConnectionState.Disconnected;
+            // Only change state if currently connecting. Don't stop reconnect attempts here.
+            if (this.changeState(ConnectionState.Connecting, ConnectionState.Disconnected)) {
+                this.logger.log(LogLevel.Error, "Failed to start the connection: " + e);
+            }
+
             this.transport = undefined;
             return Promise.reject(e);
         }
@@ -262,9 +280,6 @@ export class HttpConnection implements IConnection {
             this.transport = requestedTransport;
             await this.transport.connect(connectUrl, requestedTransferFormat);
 
-            // only change the state if we were connecting to not overwrite
-            // the state if the connection is already marked as Disconnected
-            this.changeState(ConnectionState.Connecting, ConnectionState.Connected);
             return;
         }
 
@@ -286,7 +301,6 @@ export class HttpConnection implements IConnection {
                 }
             } catch (ex) {
                 this.logger.log(LogLevel.Error, `Failed to start the transport '${endpoint.transport}': ${ex}`);
-                this.connectionState = ConnectionState.Disconnected;
                 negotiateResponse.connectionId = undefined;
                 transportExceptions.push(`${endpoint.transport} failed: ${ex}`);
             }
@@ -374,6 +388,75 @@ export class HttpConnection implements IConnection {
         if (this.onclose) {
             this.onclose(error);
         }
+    }
+
+    private async reconnect(error?: Error) {
+        try {
+            await this.startPromise;
+        } catch (e) {
+            // This exception is returned to the user as a rejected Promise from the start method
+            // or was observed by the last reconnect loop.
+        }
+
+        const reconnectPolicy = this.options.reconnectPolicy as IReconnectPolicy;
+        let previousRetryCount = 0;
+        let nextRetryDelay = reconnectPolicy.nextRetryDelayInMilliseconds(previousRetryCount++);
+
+        if (nextRetryDelay == null) {
+            this.logger.log(LogLevel.Information, "Connection not reconnecting because of the IReconnectPolicy.");
+            this.stopConnection(error);
+            return;
+        }
+
+        if (!this.changeState(ConnectionState.Connected, ConnectionState.Reconnecting)) {
+            return;
+        }
+
+        if (error) {
+            this.logger.log(LogLevel.Warning, `Connection reconnecting because of error '${error}'.`);
+        } else {
+            this.logger.log(LogLevel.Information, "Connection reconnecting.");
+        }
+
+        if (this.onreconnecting) {
+            this.onreconnecting();
+        }
+
+        while (nextRetryDelay != null) {
+            await new Promise((resolve) => setTimeout(resolve, nextRetryDelay as number));
+
+            if (this.connectionState !== ConnectionState.Reconnecting) {
+                return;
+            }
+
+            try {
+                await this.startInternal(this.transferFormat as TransferFormat);
+
+                // The TypeScript compiler thinks that this.connectionState is always Reconnecting here meaning this condition is always false.
+                // The TypeScript compiler is wrong.
+                if ((this.connectionState as any) === ConnectionState.Connected) {
+                    this.logger.log(LogLevel.Information, "Connection reconnected.");
+
+                    if (this.onreconnected) {
+                        this.onreconnected();
+                    }
+                }
+
+                return;
+            } catch (e) {
+                this.logger.log(LogLevel.Information, `Reconnect attempt failed because of error '${e}'.`);
+
+                if (this.connectionState !== ConnectionState.Reconnecting) {
+                    return;
+                }
+            }
+
+            nextRetryDelay = reconnectPolicy.nextRetryDelayInMilliseconds(previousRetryCount++);
+        }
+
+        this.logger.log(LogLevel.Information, "Reconnect retry attempts have been exhausted. Connection disconnecting.");
+
+        this.stopConnection();
     }
 
     private resolveUrl(url: string): string {

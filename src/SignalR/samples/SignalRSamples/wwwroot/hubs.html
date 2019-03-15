@@ -147,6 +147,7 @@
         console.log('http://' + document.location.host + '/' + hubRoute);
         connection = new signalR.HubConnectionBuilder()
             .configureLogging(signalR.LogLevel.Trace)
+            .withAutomaticReconnect()
             .withUrl(hubRoute, options)
             .withHubProtocol(protocol)
             .build();

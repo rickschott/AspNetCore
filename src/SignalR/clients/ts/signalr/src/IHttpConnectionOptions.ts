@@ -3,6 +3,7 @@
 
 import { HttpClient } from "./HttpClient";
 import { ILogger, LogLevel } from "./ILogger";
+import { IReconnectPolicy } from "./IReconnectPolicy";
 import { HttpTransportType, ITransport } from "./ITransport";
 import { EventSourceConstructor, WebSocketConstructor } from "./Polyfills";
 
@@ -39,6 +40,9 @@ export interface IHttpConnectionOptions {
      * Negotiation can only be skipped when the {@link @aspnet/signalr.IHttpConnectionOptions.transport} property is set to 'HttpTransportType.WebSockets'.
      */
     skipNegotiation?: boolean;
+
+    /** If defined, this indicates the client should automatically attempt to reconnect if the connection is lost. */
+    reconnectPolicy?: IReconnectPolicy;
 
     // Used for unit testing and code spelunkers
     /** A constructor that can be used to create a WebSocket.
