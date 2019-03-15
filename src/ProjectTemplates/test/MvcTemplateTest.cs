@@ -12,16 +12,22 @@ namespace Templates.Test
     {
         public MvcTemplateTest(ProjectFactoryFixture projectFactory, ITestOutputHelper output)
         {
-            Project = projectFactory.CreateProject(output);
+            ProjectFactory = projectFactory;
+            Output = output;
         }
 
-        public Project Project { get; }
+        public Project Project { get; set; }
+
+        public ProjectFactoryFixture ProjectFactory { get; }
+        public ITestOutputHelper Output { get; }
 
         [Theory]
         [InlineData(null)]
         [InlineData("F#")]
         public async Task MvcTemplate_NoAuthImplAsync(string languageOverride)
         {
+            Project = ProjectFactory.CreateProject("mvcnoauth"+languageOverride != null ? "fsharp" : "csharp", Output);
+
             Project.RunDotNetNew("mvc", language: languageOverride);
 
             Project.AssertDirectoryExists("Areas", false);
@@ -52,6 +58,8 @@ namespace Templates.Test
         [InlineData(false)]
         public async Task MvcTemplate_IndividualAuthImplAsync(bool useLocalDB)
         {
+            Project = ProjectFactory.CreateProject("mvcindividual" + (useLocalDB ? "uld" : ""), Output);
+
             Project.RunDotNetNew("mvc", auth: "Individual", useLocalDB: useLocalDB);
 
             Project.AssertDirectoryExists("Extensions", false);

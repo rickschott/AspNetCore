@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ProjectTemplates.Tests.Helpers;
@@ -16,7 +17,8 @@ namespace Templates.Test
     {
         public BaselineTest(ProjectFactoryFixture projectFactory, ITestOutputHelper output)
         {
-            Project = projectFactory.CreateProject(output);
+            ProjectFactory = projectFactory;
+            Output = output;
         }
 
         public Project Project { get; set; }
@@ -47,10 +49,14 @@ namespace Templates.Test
             }
         }
 
+        public ProjectFactoryFixture ProjectFactory { get; }
+        public ITestOutputHelper Output { get; }
+
         [Theory]
         [MemberData(nameof(TemplateBaselines))]
         public void Template_Produces_The_Right_Set_Of_Files(string arguments, string[] expectedFiles)
         {
+            Project = ProjectFactory.CreateProject(SanitizeArgs(arguments), Output);
             Project.RunDotNet(arguments);
             foreach (var file in expectedFiles)
             {
@@ -72,6 +78,24 @@ namespace Templates.Test
                 }
                 Assert.Contains(relativePath, expectedFiles);
             }
+        }
+
+        private string SanitizeArgs(string arguments)
+        {
+            
+            var text = Regex.Match(arguments, "new (?<template>[a-zA-Z]+)").Groups.TryGetValue("template", out var template) ?
+                template.Value : "";
+
+            
+            text += Regex.Match(arguments, "-au (?<auth>[a-zA-Z]+)").Groups.TryGetValue("auth", out var auth) ?
+                auth.Value : "";
+
+            text += arguments.Contains("--uld") ? "uld" : "";
+
+            text += Regex.Match(arguments, "--language (?<language>\\w+)").Groups.TryGetValue("language", out var language) ?
+                language.Value.Replace("#", "Sharp") : "";
+
+            return text;
         }
     }
 }

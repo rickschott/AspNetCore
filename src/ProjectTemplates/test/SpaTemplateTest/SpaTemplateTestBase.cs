@@ -25,16 +25,20 @@ namespace Templates.Test.SpaTemplateTest
         public SpaTemplateTestBase(
             ProjectFactoryFixture projectFactory, BrowserFixture browserFixture, ITestOutputHelper output) : base(browserFixture, output)
         {
-            Project = projectFactory.CreateProject(output);
+            ProjectFactory = projectFactory;
         }
 
-        public Project Project { get; }
+        public ProjectFactoryFixture ProjectFactory { get; set; }
+
+        public Project Project { get; set; }
 
         // Rather than using [Theory] to pass each of the different values for 'template',
         // it's important to distribute the SPA template tests over different test classes
         // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected async Task SpaTemplateImplAsync(string template, bool noHttps = false)
+        protected async Task SpaTemplateImplAsync(string key, string template, bool noHttps = false)
         {
+            Project = ProjectFactory.CreateProject(key, Output);
+
             Project.RunDotNetNew(template, noHttps: noHttps);
 
             // For some SPA templates, the NPM root directory is './ClientApp'. In other
@@ -56,8 +60,10 @@ namespace Templates.Test.SpaTemplateTest
         // Rather than using [Theory] to pass each of the different values for 'template',
         // it's important to distribute the SPA template tests over different test classes
         // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected async Task SpaTemplateImpl_IndividualAuthAsync(string template, bool useLocalDb = false, bool noHttps = false)
+        protected async Task SpaTemplateImpl_IndividualAuthAsync(string key, string template, bool useLocalDb = false, bool noHttps = false)
         {
+            Project = ProjectFactory.CreateProject(key, Output);
+
             Project.RunDotNetNew(template, auth: "Individual", language: null, useLocalDb, noHttps: noHttps);
 
             // For some SPA templates, the NPM root directory is './ClientApp'. In other

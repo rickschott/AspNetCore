@@ -19,14 +19,17 @@ namespace Templates.Test
     {
         public RazorComponentsTemplateTest(ProjectFactoryFixture projectFactory, BrowserFixture browserFixture, ITestOutputHelper output) : base(browserFixture, output)
         {
-            Project = projectFactory.CreateProject(output);
+            ProjectFactory = projectFactory;
         }
 
-        public Project Project { get; }
+        public ProjectFactoryFixture ProjectFactory { get; set; }
+
+        public Project Project { get; private set; }
 
         [Fact(Skip = "https://github.com/aspnet/AspNetCore/issues/8244")]
         public async Task RazorComponentsTemplateWorksAsync()
         {
+            Project = ProjectFactory.CreateProject("razorcomponents", Output);
             Project.RunDotNetNew("razorcomponents");
             await TestApplicationAsync(publish: false);
             await TestApplicationAsync(publish: true);

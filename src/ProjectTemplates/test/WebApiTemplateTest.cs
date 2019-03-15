@@ -12,14 +12,21 @@ namespace Templates.Test
     {
         public WebApiTemplateTest(ProjectFactoryFixture factoryFixture, ITestOutputHelper output)
         {
-            Project = factoryFixture.CreateProject(output);
+            FactoryFixture = factoryFixture;
+            Output = output;
         }
 
-        public Project Project { get; }
+        public ProjectFactoryFixture FactoryFixture { get; }
+
+        public ITestOutputHelper Output { get; }
+
+        public Project Project { get; set; }
 
         [Fact]
         public async Task WebApiTemplateAsync()
         {
+            Project = FactoryFixture.CreateProject("webapi", Output);
+
             Project.RunDotNetNew("webapi");
 
             foreach (var publish in new[] { false, true })

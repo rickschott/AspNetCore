@@ -62,6 +62,9 @@
       <CustomTemplateHivePath>$(TestTemplateCreationFolder)\Hives\$([System.Guid]::NewGuid())\.templateengine</CustomTemplateHivePath>
     </PropertyGroup>
 
+    <Message Importance="high" Text="TemplatePackageMetadata Shipping packages dir $(ArtifactsShippingPackagesDir)" />
+    <Message Importance="high" Text="TemplatePackageMetadata NonShipping packages dir $(ArtifactsNonShippingPackagesDir)" />
+
     <ItemGroup>
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ItemTemplates*.nupkg" />
       <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ProjectTemplates.2.1*.nupkg" />

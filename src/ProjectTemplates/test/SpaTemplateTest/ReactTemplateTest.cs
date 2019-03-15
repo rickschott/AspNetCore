@@ -19,15 +19,14 @@ namespace Templates.Test.SpaTemplateTest
         //[Fact(Skip="This test is flaky. Using https://github.com/aspnet/AspNetCore-Internal/issues/1745 to track re-enabling this.")]
         [Fact]
         public Task ReactTemplate_Works_NetCore()
-            => SpaTemplateImplAsync("react");
+            => SpaTemplateImplAsync("reactnoauth", "react");
 
         [Fact]
         public Task ReactTemplate_IndividualAuth_NetCore()
-            => SpaTemplateImpl_IndividualAuthAsync("react");
+            => SpaTemplateImpl_IndividualAuthAsync("reactindividual", "react");
 
         [Fact]
         public Task ReactTemplate_IndividualAuth_NetCore_LocalDb()
-            => SpaTemplateImpl_IndividualAuthAsync("react", useLocalDb: true);
-
+            => SpaTemplateImpl_IndividualAuthAsync("reactindividualuld", "react", useLocalDb: true);
     }
 }

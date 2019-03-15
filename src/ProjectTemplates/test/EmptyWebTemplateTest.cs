@@ -12,14 +12,21 @@ namespace Templates.Test
     {
         public EmptyWebTemplateTest(ProjectFactoryFixture projectFactory, ITestOutputHelper output)
         {
-            Project = projectFactory.CreateProject(output);
+            ProjectFactory = projectFactory;
+            Output = output;
         }
 
-        public Project Project { get; }
+        public Project Project { get; set; }
+
+        public ProjectFactoryFixture ProjectFactory { get; }
+
+        public ITestOutputHelper Output { get; }
 
         [Fact]
         public async Task EmptyWebTemplateAsync()
         {
+            Project = ProjectFactory.CreateProject("empty", Output);
+
             Project.RunDotNetNew("web");
 
             foreach (var publish in new[] { false, true })

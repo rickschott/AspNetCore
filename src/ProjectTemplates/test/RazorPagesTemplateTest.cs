@@ -13,14 +13,21 @@ namespace Templates.Test
     {
         public RazorPagesTemplateTest(ProjectFactoryFixture projectFactory, ITestOutputHelper output)
         {
-            Project = projectFactory.CreateProject(output);
+            ProjectFactory = projectFactory;
+            Output = output;
         }
 
-        public Project Project { get; }
+        public Project Project { get; set; }
+
+        public ProjectFactoryFixture ProjectFactory { get; set; }
+
+        public ITestOutputHelper Output { get; }
 
         [Fact]
         public async Task RazorPagesTemplate_NoAuthImplAsync()
         {
+            Project = ProjectFactory.CreateProject("razorpagesnoauth", Output);
+
             Project.RunDotNetNew("razor");
 
             Project.AssertFileExists("Pages/Shared/_LoginPartial.cshtml", false);
@@ -45,8 +52,10 @@ namespace Templates.Test
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public async Task RazorPagesTemplate_IndividualAuthImplAsync( bool useLocalDB)
+        public async Task RazorPagesTemplate_IndividualAuthImplAsync(bool useLocalDB)
         {
+            Project = ProjectFactory.CreateProject("razorpagesindividual" + (useLocalDB ? "uld" : ""), Output);
+
             Project.RunDotNetNew("razor", auth: "Individual", useLocalDB: useLocalDB);
 
             Project.AssertFileExists("Pages/Shared/_LoginPartial.cshtml", true);

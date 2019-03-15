@@ -20,7 +20,7 @@ namespace ProjectTemplates.Tests.Helpers
     {
         private static object DotNetNewLock = new object();
 
-        private ConcurrentBag<Project> _projects = new ConcurrentBag<Project>();
+        private ConcurrentDictionary<string, Project> _projects = new ConcurrentDictionary<string, Project>();
 
         public IMessageSink DiagnosticsMessageSink { get; }
 
@@ -29,25 +29,26 @@ namespace ProjectTemplates.Tests.Helpers
             DiagnosticsMessageSink = diagnosticsMessageSink;
         }
 
-        public Project CreateProject(ITestOutputHelper output)
+        public Project CreateProject(string projectKey, ITestOutputHelper output)
         {
             TemplatePackageInstaller.EnsureTemplatingEngineInitialized(output);
-            var project = new Project
-            {
-                DotNetNewLock = DotNetNewLock,
-                Output = output,
-                DiagnosticsMessageSink = DiagnosticsMessageSink,
-                ProjectGuid = Guid.NewGuid().ToString("N").Substring(0, 6)
-            };
-            project.ProjectName = $"AspNet.Template.{project.ProjectGuid}";
+            return _projects.GetOrAdd(projectKey, (key, outputHelper) =>
+             {
+                 var project = new Project
+                 {
+                     DotNetNewLock = DotNetNewLock,
+                     Output = outputHelper,
+                     DiagnosticsMessageSink = DiagnosticsMessageSink,
+                     ProjectGuid = Guid.NewGuid().ToString("N").Substring(0, 6)
+                 };
+                 project.ProjectName = $"AspNet.{key}.{project.ProjectGuid}";
 
-            _projects.Add(project);
-
-            var assemblyPath = GetType().Assembly;
-            string basePath = GetTemplateFolderBasePath(assemblyPath);
-            project.TemplateOutputDir = Path.Combine(basePath, project.ProjectName);
-
-            return project;
+                 var assemblyPath = GetType().Assembly;
+                 string basePath = GetTemplateFolderBasePath(assemblyPath);
+                 project.TemplateOutputDir = Path.Combine(basePath, project.ProjectName);
+                 return project;
+             },
+             output);
         }
 
         private static string GetTemplateFolderBasePath(Assembly assembly) =>
@@ -62,9 +63,9 @@ namespace ProjectTemplates.Tests.Helpers
             {
                 try
                 {
-                    project.Dispose();
+                    project.Value.Dispose();
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     list.Add(e);
                 }
