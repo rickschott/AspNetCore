@@ -4,6 +4,7 @@
 using System;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using BasicTestApp;
 using BasicTestApp.RouterTest;
 using Microsoft.AspNetCore.Components.E2ETest.Infrastructure;
@@ -24,6 +25,12 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             ITestOutputHelper output)
             : base(browserFixture, serverFixture, output)
         {
+        }
+
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
+
             Navigate(ServerPathBase, noReload: false);
             WaitUntilTestSelectorReady();
         }
@@ -105,7 +112,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Other")).Click();
-            WaitAssert.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Other", "Other with base-relative URL (matches all)");
         }
 
@@ -124,7 +131,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
               
                 new Actions(Browser).KeyDown(key).Click(button).Build().Perform();
 
-                WaitAssert.Equal(2, () => Browser.WindowHandles.Count);
+                Browser.Equal(2, () => Browser.WindowHandles.Count);
             }
             finally
             {
@@ -155,7 +162,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
                 app.FindElement(By.LinkText("Target (_blank)")).Click();
 
-                WaitAssert.Equal(2, () => Browser.WindowHandles.Count);
+                Browser.Equal(2, () => Browser.WindowHandles.Count);
             }
             finally
             {
@@ -191,7 +198,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Other with base-relative URL (matches all)")).Click();
-            WaitAssert.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Other", "Other with base-relative URL (matches all)");
         }
 
@@ -202,7 +209,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Default with base-relative URL (matches all)")).Click();
-            WaitAssert.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Default (matches all)", "Default with base-relative URL (matches all)");
         }
 
@@ -213,12 +220,12 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("With parameters")).Click();
-            WaitAssert.Equal("Your full name is Abc .", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("Your full name is Abc .", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("With parameters");
 
             // Can add more parameters while remaining on same page
             app.FindElement(By.LinkText("With more parameters")).Click();
-            WaitAssert.Equal("Your full name is Abc McDef.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("Your full name is Abc McDef.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("With parameters", "With more parameters");
 
             // Can remove parameters while remaining on same page
@@ -227,7 +234,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             // Without that, the page would retain the old value.
             // See https://github.com/aspnet/AspNetCore/issues/6864 where we reverted the logic to auto-reset.
             app.FindElement(By.LinkText("With parameters")).Click();
-            WaitAssert.Equal("Your full name is Abc .", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("Your full name is Abc .", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("With parameters");
         }
 
@@ -238,7 +245,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Default (matches all)")).Click();
-            WaitAssert.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Default (matches all)", "Default with base-relative URL (matches all)");
         }
 
@@ -249,7 +256,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Other with query")).Click();
-            WaitAssert.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Other", "Other with query");
         }
 
@@ -260,7 +267,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Default with query")).Click();
-            WaitAssert.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Default with query");
         }
 
@@ -271,7 +278,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Other with hash")).Click();
-            WaitAssert.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Other", "Other with hash");
         }
 
@@ -282,7 +289,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
             var app = MountTestComponent<TestRouter>();
             app.FindElement(By.LinkText("Default with hash")).Click();
-            WaitAssert.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.Equal("This is the default page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Default with hash");
         }
 
@@ -295,8 +302,8 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             var testSelector = WaitUntilTestSelectorReady();
 
             app.FindElement(By.Id("do-navigation")).Click();
-            WaitAssert.True(() => Browser.Url.EndsWith("/Other"));
-            WaitAssert.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
+            Browser.True(() => Browser.Url.EndsWith("/Other"));
+            Browser.Equal("This is another page.", () => app.FindElement(By.Id("test-info")).Text);
             AssertHighlightedLinks("Other", "Other with base-relative URL (matches all)");
 
             // Because this was client-side navigation, we didn't lose the state in the test selector
@@ -312,7 +319,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             var testSelector = WaitUntilTestSelectorReady();
 
             app.FindElement(By.Id("do-navigation-forced")).Click();
-            WaitAssert.True(() => Browser.Url.EndsWith("/Other"));
+            Browser.True(() => Browser.Url.EndsWith("/Other"));
 
             // Because this was a full-page load, our element references should no longer be valid
             Assert.Throws<StaleElementReferenceException>(() =>
@@ -344,7 +351,7 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
 
         private void AssertHighlightedLinks(params string[] linkTexts)
         {
-            WaitAssert.Equal(linkTexts, () => Browser
+            Browser.Equal(linkTexts, () => Browser
                 .FindElements(By.CssSelector("a.active"))
                 .Select(x => x.Text));
         }

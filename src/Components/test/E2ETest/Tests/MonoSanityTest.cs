@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using OpenQA.Selenium.Support.UI;
 using System;
+using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -21,6 +22,12 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             : base(browserFixture, serverFixture, output)
         {
             serverFixture.BuildWebHostMethod = MonoSanity.Program.BuildWebHost;
+        }
+
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
+
             Navigate("/", noReload: true);
             WaitUntilMonoRunningInBrowser();
         }

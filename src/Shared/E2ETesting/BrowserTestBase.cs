@@ -38,7 +38,7 @@ namespace Microsoft.AspNetCore.E2ETesting
             return Task.CompletedTask;
         }
 
-        public  async Task InitializeAsync()
+        public virtual async Task InitializeAsync()
         {
             var (browser, logs) = await Fixture.GetOrCreateBrowserAsync(Output);
             _asyncBrowser.Value = browser;

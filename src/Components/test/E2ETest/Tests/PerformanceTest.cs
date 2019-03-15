@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.E2ETesting;
 using OpenQA.Selenium;
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -21,6 +22,12 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             ITestOutputHelper output)
             : base(browserFixture, serverFixture, output)
         {
+        }
+
+        public override async Task InitializeAsync()
+        {
+            await base.InitializeAsync();
+
             Navigate("/", noReload: true);
         }
 
@@ -43,8 +50,8 @@ namespace Microsoft.AspNetCore.Components.E2ETest.Tests
             runAllButton.Click();
 
             // The "run" button goes away while the benchmarks execute, then it comes back
-            WaitAssert.False(() => runAllButton.Displayed);
-            WaitAssert.True(
+            Browser.False(() => runAllButton.Displayed);
+            Browser.True(
                 () => runAllButton.Displayed || Browser.FindElements(By.CssSelector(".benchmark-error")).Any(),
                 TimeSpan.FromSeconds(60));
 

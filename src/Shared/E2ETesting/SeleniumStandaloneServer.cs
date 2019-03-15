@@ -32,7 +32,10 @@ namespace Microsoft.AspNetCore.E2ETesting
         {
             lock (_lock)
             {
-                _instanceTask = CreateInstance(output);
+                if (_instanceTask == null)
+                {
+                    _instanceTask = CreateInstance(output);
+                }
             }
 
             var instance = await _instanceTask;
