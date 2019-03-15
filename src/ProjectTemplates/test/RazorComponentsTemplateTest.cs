@@ -68,7 +68,7 @@ namespace Templates.Test
             var counterDisplay = Browser.FindElement("h1 + p");
             Assert.Equal("Current count: 0", counterDisplay.Text);
             Browser.Click(counterComponent, "button");
-            WaitAssert.Equal("Current count: 1", () => Browser.FindElement("h1+p").Text);
+            Browser.Equal("Current count: 1", () => Browser.FindElement("h1+p").Text);
 
             // Can navigate to the 'fetch data' page
             Browser.Click(By.PartialLinkText("Fetch data"));

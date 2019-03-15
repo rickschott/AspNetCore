@@ -12,7 +12,7 @@ namespace Microsoft.AspNetCore.E2ETesting
     [CaptureSeleniumLogs]
     public class BrowserTestBase : IClassFixture<BrowserFixture>, IAsyncLifetime
     {
-        private static readonly AsyncLocal<IWebDriver> _browser = new AsyncLocal<IWebDriver>();
+        private static readonly AsyncLocal<IWebDriver> _asyncBrowser = new AsyncLocal<IWebDriver>();
         private static readonly AsyncLocal<ILogs> _logs = new AsyncLocal<ILogs>();
         private static readonly AsyncLocal<ITestOutputHelper> _output = new AsyncLocal<ITestOutputHelper>();
 
@@ -22,7 +22,9 @@ namespace Microsoft.AspNetCore.E2ETesting
             _output.Value = output;
         }
 
-        public static IWebDriver Browser => _browser.Value;
+        public IWebDriver Browser { get; set; }
+
+        public static IWebDriver BrowserAccessor => _asyncBrowser.Value;
 
         public static ILogs Logs => _logs.Value;
 
@@ -32,15 +34,17 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public Task DisposeAsync()
         {
-            _browser.Value?.Dispose();
+            _asyncBrowser.Value?.Dispose();
             return Task.CompletedTask;
         }
 
         public  async Task InitializeAsync()
         {
             var (browser, logs) = await Fixture.GetOrCreateBrowserAsync(Output);
-            _browser.Value = browser;
+            _asyncBrowser.Value = browser;
             _logs.Value = logs;
+
+            Browser = browser;
         }
     }
 }
