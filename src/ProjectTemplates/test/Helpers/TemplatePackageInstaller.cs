@@ -11,23 +11,6 @@ using Xunit.Abstractions;
 
 namespace Templates.Test.Helpers
 {
-    internal class NullTestOutputHelper : ITestOutputHelper
-    {
-        public bool Throw { get; set; }
-
-        public string Output => null;
-
-        public void WriteLine(string message)
-        {
-            return;
-        }
-
-        public void WriteLine(string format, params object[] args)
-        {
-            return;
-        }
-    }
-
     internal static class TemplatePackageInstaller
     {
         private static object _templatePackagesReinstallationLock = new object();
@@ -95,7 +78,7 @@ namespace Templates.Test.Helpers
                 // We don't need this command to succeed, because we'll verify next that
                 // uninstallation had the desired effect. This command is expected to fail
                 // in the case where the package wasn't previously installed.
-                RunDotNetNew(new NullTestOutputHelper(), $"--uninstall {packageName}", assertSuccess: false);
+                RunDotNetNew(output, $"--uninstall {packageName}", assertSuccess: false);
             }
 
             VerifyCannotFindTemplate(output, "web");
