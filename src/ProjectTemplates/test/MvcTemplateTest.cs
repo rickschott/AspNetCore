@@ -26,7 +26,7 @@ namespace Templates.Test
         [InlineData("F#")]
         public async Task MvcTemplate_NoAuthImplAsync(string languageOverride)
         {
-            Project = ProjectFactory.CreateProject("mvcnoauth"+languageOverride != null ? "fsharp" : "csharp", Output);
+            Project = ProjectFactory.CreateProject("mvcnoauth" + (languageOverride == "F#" ? "fsharp" : "csharp"), Output);
 
             Project.RunDotNetNew("mvc", language: languageOverride);
 
