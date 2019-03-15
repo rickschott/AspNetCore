@@ -55,7 +55,8 @@ namespace Microsoft.AspNetCore.E2ETesting
         {
             if (!IsHostAutomationSupported())
             {
-                throw new InvalidOperationException("Host does not support browser automation.");
+                output.WriteLine($"{nameof(BrowserFixture)}: Host does not support browser automation.");
+                return default;
             }
 
             if ((_browser, _logs) != (null, null))
