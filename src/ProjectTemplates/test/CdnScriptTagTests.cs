@@ -32,9 +32,13 @@ namespace Templates.Test
 
         static CdnScriptTagTests()
         {
-            _packages = typeof(CdnScriptTagTests).Assembly
-                .GetCustomAttributes<AssemblyMetadataAttribute>()
-                .Where(a => a.Key == "AllPackagesMetadata").Select(kvp => kvp.Value)
+            var searchPattern = "*.nupkg";
+            _packages = Directory.EnumerateFiles(
+                    ResolveFolder("ArtifactsShippingPackagesDir"),
+                    searchPattern)
+                .Concat(Directory.EnumerateFiles(
+                    ResolveFolder("ArtifactsNonShippingPackagesDir"),
+                    searchPattern))
                 .ToArray();
 
             _scriptTags = new List<ScriptTag>();
@@ -46,6 +50,11 @@ namespace Templates.Test
                 _linkTags.AddRange(tags.links);
             }
         }
+
+        private static string ResolveFolder(string folder) =>
+            typeof(CdnScriptTagTests).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Single(a => a.Key == folder).Value;
 
         public CdnScriptTagTests(ITestOutputHelper output)
         {
@@ -167,7 +176,8 @@ namespace Templates.Test
         private async Task<HttpResponseMessage> GetFromCDN(string src)
         {
             var logger = NullLogger.Instance;
-            return await RetryHelper.RetryRequest(async () => {
+            return await RetryHelper.RetryRequest(async () =>
+            {
                 var request = new HttpRequestMessage(HttpMethod.Get, new Uri(src));
                 return await _httpClient.SendAsync(request);
             }, logger);

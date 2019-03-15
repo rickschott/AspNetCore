@@ -66,34 +66,14 @@
     <Message Importance="high" Text="TemplatePackageMetadata NonShipping packages dir $(ArtifactsNonShippingPackagesDir)" />
 
     <ItemGroup>
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ItemTemplates*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Common.ProjectTemplates.2.1*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Test.ProjectTemplates.2.1*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Client.ItemTemplates*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ItemTemplates*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.1.x*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.0*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.1*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.2.2*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.ProjectTemplates.3.0*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Spa.ProjectTemplates*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Spa.ProjectTemplates.2.2*.nupkg" />
-      <TemplatePackageMetadata Include="$(ArtifactsShippingPackagesDir)Microsoft.DotNet.Web.Spa.ProjectTemplates.3.0*.nupkg" />
-
-      <AllPackagesMetadata Include="$(ArtifactsShippingPackagesDir)*.nupkg" />
-      <AllPackagesMetadata Include="$(ArtifactsNonShippingPackagesDir)*.nupkg" />
-    </ItemGroup>
-
-    <ItemGroup>
-
-      <AssemblyAttribute Include="@(TemplatePackageMetadata->'System.Reflection.AssemblyMetadataAttribute')">
-        <_Parameter1>TemplatePackageMetadata</_Parameter1>
-        <_Parameter2>%(TemplatePackageMetadata.Identity)</_Parameter2>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>ArtifactsShippingPackagesDir</_Parameter1>
+        <_Parameter2>$(ArtifactsShippingPackagesDir)</_Parameter2>
       </AssemblyAttribute>
 
-      <AssemblyAttribute Include="@(AllPackagesMetadata->'System.Reflection.AssemblyMetadataAttribute')">
-        <_Parameter1>AllPackagesMetadata</_Parameter1>
-        <_Parameter2>%(AllPackagesMetadata.Identity)</_Parameter2>
+      <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>ArtifactsNonShippingPackagesDir</_Parameter1>
+        <_Parameter2>$(ArtifactsNonShippingPackagesDir)</_Parameter2>
       </AssemblyAttribute>
 
       <AssemblyAttribute Include="System.Reflection.AssemblyMetadataAttribute">

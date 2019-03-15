@@ -72,25 +72,14 @@ namespace Templates.Test.Helpers
 
         private static void InstallTemplatePackages(ITestOutputHelper output)
         {
-            var builtPackages = typeof(TemplatePackageInstaller).Assembly
-                .GetCustomAttributes<AssemblyMetadataAttribute>()
-                .Where(a => a.Key == "TemplatePackageMetadata").Select(kvp => kvp.Value)
+            var builtPackages = Directory.EnumerateFiles(
+                    typeof(TemplatePackageInstaller).Assembly
+                    .GetCustomAttributes<AssemblyMetadataAttribute>()
+                    .Single(a => a.Key == "ArtifactsShippingPackagesDir").Value,
+                    "*.nupkg")
+                .Where(p => _templatePackages.Any(t => Path.GetFileName(p).StartsWith(t, StringComparison.OrdinalIgnoreCase)))
                 .ToArray();
 
-            output.WriteLine("All metadata attributes:");
-            foreach (var attr in typeof(TemplatePackageInstaller).Assembly
-                .GetCustomAttributes<AssemblyMetadataAttribute>())
-            {
-                output.WriteLine($"{attr.Key}=\"{attr.Value}\"");
-            }
-
-            output.WriteLine("Built packages found:");
-            foreach (var package in builtPackages)
-            {
-                output.WriteLine(package);
-            }
-
-            Assert.All(builtPackages, b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
             Assert.Equal(4, builtPackages.Length);
 
             // Remove any previous or prebundled version of the template packages
