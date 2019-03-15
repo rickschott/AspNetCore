@@ -22,7 +22,7 @@ namespace Microsoft.AspNetCore.E2ETesting
             _output.Value = output;
         }
 
-        public static IWebDriver Browser { get; } = _browser.Value;
+        public static IWebDriver Browser => _browser.Value;
 
         public static ILogs Logs => _logs.Value;
 
@@ -38,7 +38,7 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public  async Task InitializeAsync()
         {
-            var (browser, logs) = await Fixture.CreateBrowserAsync(Output);
+            var (browser, logs) = await Fixture.GetOrCreateBrowserAsync(Output);
             _browser.Value = browser;
             _logs.Value = logs;
         }

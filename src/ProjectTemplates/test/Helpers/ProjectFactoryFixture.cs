@@ -12,6 +12,7 @@ using Microsoft.Extensions.CommandLineUtils;
 using Templates.Test.Helpers;
 using Xunit;
 using Xunit.Abstractions;
+using Xunit.Sdk;
 
 namespace ProjectTemplates.Tests.Helpers
 {
@@ -21,6 +22,13 @@ namespace ProjectTemplates.Tests.Helpers
 
         private ConcurrentBag<Project> _projects = new ConcurrentBag<Project>();
 
+        public IMessageSink DiagnosticsMessageSink { get; }
+
+        public ProjectFactoryFixture(IMessageSink diagnosticsMessageSink)
+        {
+            DiagnosticsMessageSink = diagnosticsMessageSink;
+        }
+
         public Project CreateProject(ITestOutputHelper output)
         {
             TemplatePackageInstaller.EnsureTemplatingEngineInitialized(output);
@@ -28,6 +36,7 @@ namespace ProjectTemplates.Tests.Helpers
             {
                 DotNetNewLock = DotNetNewLock,
                 Output = output,
+                DiagnosticsMessageSink = DiagnosticsMessageSink,
                 ProjectGuid = Guid.NewGuid().ToString("N").Substring(0, 6)
             };
             project.ProjectName = $"AspNet.Template.{project.ProjectGuid}";
@@ -75,6 +84,7 @@ namespace ProjectTemplates.Tests.Helpers
         public string TemplateOutputDir { get; set; }
         public ITestOutputHelper Output { get; set; }
         public object DotNetNewLock { get; set; }
+        public IMessageSink DiagnosticsMessageSink { get; set; }
 
         public void RunDotNetNew(string templateName, string auth = null, string language = null, bool useLocalDB = false, bool noHttps = false)
         {
@@ -232,12 +242,12 @@ namespace ProjectTemplates.Tests.Helpers
                 {
                     if (numAttemptsRemaining > 1)
                     {
-                        Output.WriteLine($"Failed to delete directory {TemplateOutputDir} because of error {ex.Message}. Will try again {numAttemptsRemaining - 1} more time(s).");
+                        DiagnosticsMessageSink.OnMessage(new DiagnosticMessage($"Failed to delete directory {TemplateOutputDir} because of error {ex.Message}. Will try again {numAttemptsRemaining - 1} more time(s)."));
                         Thread.Sleep(3000);
                     }
                     else
                     {
-                        Output.WriteLine($"Giving up trying to delete directory {TemplateOutputDir} after {NumAttempts} attempts. Most recent error was: {ex.StackTrace}");
+                        DiagnosticsMessageSink.OnMessage(new DiagnosticMessage($"Giving up trying to delete directory {TemplateOutputDir} after {NumAttempts} attempts. Most recent error was: {ex.StackTrace}"));
                     }
                 }
             }

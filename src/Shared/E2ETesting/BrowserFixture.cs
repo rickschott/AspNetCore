@@ -15,6 +15,9 @@ namespace Microsoft.AspNetCore.E2ETesting
 {
     public class BrowserFixture
     {
+        private RemoteWebDriver _browser;
+        private RemoteLogs _logs;
+
         public BrowserFixture(IMessageSink diagnosticsMessageSink)
         {
             DiagnosticsMessageSink = diagnosticsMessageSink;
@@ -48,11 +51,16 @@ namespace Microsoft.AspNetCore.E2ETesting
             }
         }
 
-        public async Task<(IWebDriver, ILogs)> CreateBrowserAsync(ITestOutputHelper output)
+        public async Task<(IWebDriver, ILogs)> GetOrCreateBrowserAsync(ITestOutputHelper output)
         {
             if (!IsHostAutomationSupported())
             {
                 throw new InvalidOperationException("Host does not support browser automation.");
+            }
+
+            if ((_browser, _logs) != (null, null))
+            {
+                return (_browser, _logs);
             }
 
             var opts = new ChromeOptions();
@@ -74,11 +82,46 @@ namespace Microsoft.AspNetCore.E2ETesting
 
             var instance = await SeleniumStandaloneServer.GetInstanceAsync(output);
 
-            var driver = new RemoteWebDriver(instance.Uri, opts.ToCapabilities(), TimeSpan.FromSeconds(180));
-            driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(1);
-            var logs = new RemoteLogs(driver);
+            var attempt = 0;
+            var maxAttempts = 3;
+            do
+            {
+                try
+                {
+                    // The driver opens the browser window and tries to connect to it on the constructor.
+                    // Under heavy load, this can cause issues
+                    // To prevent this we let the client attempt several times to connect to the server, increasing
+                    // the max allowed timeout for a command on each attempt linearly.
+                    // This can also be caused if many tests are running concurrently, we might want to manage
+                    // chrome and chromedriver instances more aggresively if we have to.
+                    // Additionally, if we think the selenium server has become irresponsive, we could spin up
+                    // replace the current selenium server instance and let a new instance take over for the
+                    // remaining tests.
+                    var driver = new RemoteWebDriver(
+                        instance.Uri,
+                        opts.ToCapabilities(),
+                        TimeSpan.FromSeconds(60).Add(TimeSpan.FromSeconds(attempt * 60)));
 
-            return (driver, logs);
+                    driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(1);
+                    var logs = new RemoteLogs(driver);
+
+                    _browser = driver;
+                    _logs = logs;
+
+                    return (_browser, _logs);
+                }
+                catch
+                {
+                    if (attempt >= maxAttempts)
+                    {
+                        throw new InvalidOperationException("Couldn't create a Selenium remote driver client. The server is irresponsive");
+                    }
+                }
+                attempt++;
+            } while (attempt < maxAttempts);
+
+            // We will never get here. Keeping the compiler happy.
+            throw new InvalidOperationException("Couldn't create a Selenium remote driver client. The server is irresponsive");
         }
     }
 }
