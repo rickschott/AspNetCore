@@ -93,14 +93,16 @@ namespace Templates.Test.Helpers
             .Where(a => a.Key == "TemplatePackageMetadata").Select(kvp => kvp.Value)
             .ToArray();
 
-            var templatePackages = builtPackages
-                .Where(b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
+            output.WriteLine("Built packages found:");
+            foreach (var package in builtPackages)
+            {
+                output.WriteLine(package);
+            }
 
-            Assert.True(
-                4 == templatePackages.Count(),
-                string.Join(Environment.NewLine, builtPackages));
+            Assert.All(builtPackages, b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
+            Assert.Equal(4, builtPackages.Length);
 
-            foreach (var packagePath in templatePackages)
+            foreach (var packagePath in builtPackages)
             {
                 output.WriteLine($"Installing templates package {packagePath}...");
                 RunDotNetNew(output, $"--install \"{packagePath}\"", assertSuccess: true);
