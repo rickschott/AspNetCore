@@ -74,7 +74,7 @@ namespace Microsoft.AspNetCore.E2ETesting
 
             var instance = await SeleniumStandaloneServer.GetInstanceAsync(output);
 
-            var driver = new RemoteWebDriver(instance.Uri, opts);
+            var driver = new RemoteWebDriver(instance.Uri, opts.ToCapabilities(), TimeSpan.FromSeconds(180));
             driver.Manage().Timeouts().ImplicitWait = TimeSpan.FromSeconds(1);
             var logs = new RemoteLogs(driver);
 

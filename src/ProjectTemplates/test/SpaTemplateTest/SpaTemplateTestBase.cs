@@ -8,6 +8,7 @@ using OpenQA.Selenium;
 using ProjectTemplates.Tests.Helpers;
 using System.IO;
 using System.Net;
+using System.Threading.Tasks;
 using Templates.Test.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -32,7 +33,7 @@ namespace Templates.Test.SpaTemplateTest
         // Rather than using [Theory] to pass each of the different values for 'template',
         // it's important to distribute the SPA template tests over different test classes
         // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected void SpaTemplateImpl(string template, bool noHttps = false)
+        protected async Task SpaTemplateImplAsync(string template, bool noHttps = false)
         {
             Project.RunDotNetNew(template, noHttps: noHttps);
 
@@ -48,14 +49,14 @@ namespace Templates.Test.SpaTemplateTest
             Npm.RestoreWithRetry(Output, clientAppSubdirPath);
             Npm.Test(Output, clientAppSubdirPath);
 
-            TestApplication(publish: false);
-            TestApplication(publish: true);
+            await TestApplicationAsync(publish: false);
+            await TestApplicationAsync(publish: true);
         }
 
         // Rather than using [Theory] to pass each of the different values for 'template',
         // it's important to distribute the SPA template tests over different test classes
         // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected void SpaTemplateImpl_IndividualAuth(string template, bool useLocalDb = false, bool noHttps = false)
+        protected async Task SpaTemplateImpl_IndividualAuthAsync(string template, bool useLocalDb = false, bool noHttps = false)
         {
             Project.RunDotNetNew(template, auth: "Individual", language: null, useLocalDb, noHttps: noHttps);
 
@@ -82,11 +83,11 @@ namespace Templates.Test.SpaTemplateTest
             Project.AssertEmptyMigration(template);
 
 
-            TestApplication(publish: false, visitFetchData: false);
+            await TestApplicationAsync(publish: false, visitFetchData: false);
 
             UpdateSettingsForPublish();
 
-            TestApplication(publish: true, visitFetchData: false);
+            await TestApplicationAsync(publish: true, visitFetchData: false);
         }
 
         private void UpdateSettingsForPublish()
@@ -109,11 +110,11 @@ namespace Templates.Test.SpaTemplateTest
             File.WriteAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.json"), testAppSettings);
         }
 
-        private void TestApplication(bool publish, bool visitFetchData = true)
+        private async Task TestApplicationAsync(bool publish, bool visitFetchData = true)
         {
             using (var aspNetProcess = Project.StartAspNetProcess(publish))
             {
-                aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
+                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
 
                 if (BrowserFixture.IsHostAutomationSupported())
                 {

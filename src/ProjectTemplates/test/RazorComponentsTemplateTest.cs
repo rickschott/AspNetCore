@@ -8,6 +8,7 @@ using ProjectTemplates.Tests.Helpers;
 using System.IO;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 using Templates.Test.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -24,18 +25,18 @@ namespace Templates.Test
         public Project Project { get; }
 
         [Fact(Skip = "https://github.com/aspnet/AspNetCore/issues/8244")]
-        public void RazorComponentsTemplateWorks()
+        public async Task RazorComponentsTemplateWorksAsync()
         {
             Project.RunDotNetNew("razorcomponents");
-            TestApplication(publish: false);
-            TestApplication(publish: true);
+            await TestApplicationAsync(publish: false);
+            await TestApplicationAsync(publish: true);
         }
 
-        private void TestApplication(bool publish)
+        private async Task TestApplicationAsync(bool publish)
         {
             using (var aspNetProcess = Project.StartAspNetProcess(publish))
             {
-                aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
+                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
 
                 if (BrowserFixture.IsHostAutomationSupported())
                 {

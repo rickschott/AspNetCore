@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.E2ETesting;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
@@ -17,16 +18,16 @@ namespace Templates.Test.SpaTemplateTest
 
         //[Fact(Skip="This test is flaky. Using https://github.com/aspnet/AspNetCore-Internal/issues/1745 to track re-enabling this.")]
         [Fact]
-        public void ReactTemplate_Works_NetCore()
-            => SpaTemplateImpl("react");
+        public Task ReactTemplate_Works_NetCore()
+            => SpaTemplateImplAsync("react");
 
         [Fact]
-        public void ReactTemplate_IndividualAuth_NetCore()
-            => SpaTemplateImpl_IndividualAuth("react");
+        public Task ReactTemplate_IndividualAuth_NetCore()
+            => SpaTemplateImpl_IndividualAuthAsync("react");
 
         [Fact]
-        public void ReactTemplate_IndividualAuth_NetCore_LocalDb()
-            => SpaTemplateImpl_IndividualAuth("react", useLocalDb: true);
+        public Task ReactTemplate_IndividualAuth_NetCore_LocalDb()
+            => SpaTemplateImpl_IndividualAuthAsync("react", useLocalDb: true);
 
     }
 }

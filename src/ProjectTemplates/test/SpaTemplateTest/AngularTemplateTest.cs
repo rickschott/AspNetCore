@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.E2ETesting;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
@@ -14,15 +15,15 @@ namespace Templates.Test.SpaTemplateTest
             : base(projectFactory, browserFixture, output) { }
 
         [Fact(Skip = "https://github.com/aspnet/AspNetCore-Internal/issues/1854")]
-        public void AngularTemplate_Works()
-            => SpaTemplateImpl("angular");
+        public Task AngularTemplate_Works()
+            => SpaTemplateImplAsync("angular");
 
         [Fact]
-        public void AngularTemplate_IndividualAuth_Works()
-            => SpaTemplateImpl_IndividualAuth("angular");
+        public Task AngularTemplate_IndividualAuth_Works()
+            => SpaTemplateImpl_IndividualAuthAsync("angular");
 
         [Fact]
-        public void AngularTemplate_IndividualAuth_Works_LocalDb()
-            => SpaTemplateImpl_IndividualAuth("angular", useLocalDb: true);
+        public Task AngularTemplate_IndividualAuth_Works_LocalDb()
+            => SpaTemplateImpl_IndividualAuthAsync("angular", useLocalDb: true);
     }
 }

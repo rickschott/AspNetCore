@@ -1,7 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
-using Microsoft.AspNetCore.E2ETesting;
+using System.Threading.Tasks;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -18,7 +18,7 @@ namespace Templates.Test
         public Project Project { get; }
 
         [Fact]
-        public void EmptyWebTemplate()
+        public async Task EmptyWebTemplateAsync()
         {
             Project.RunDotNetNew("web");
 
@@ -26,7 +26,7 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/");
+                    await aspNetProcess.AssertOk("/");
                 }
             }
         }

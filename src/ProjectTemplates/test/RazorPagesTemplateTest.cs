@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using Microsoft.AspNetCore.Testing.xunit;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
@@ -18,7 +19,7 @@ namespace Templates.Test
         public Project Project { get; }
 
         [Fact]
-        private void RazorPagesTemplate_NoAuthImpl()
+        public async Task RazorPagesTemplate_NoAuthImplAsync()
         {
             Project.RunDotNetNew("razor");
 
@@ -35,8 +36,8 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/");
-                    aspNetProcess.AssertOk("/Privacy");
+                    await aspNetProcess.AssertOk("/");
+                    await aspNetProcess.AssertOk("/Privacy");
                 }
             }
         }
@@ -44,7 +45,7 @@ namespace Templates.Test
         [Theory]
         [InlineData(false)]
         [InlineData(true)]
-        public void RazorPagesTemplate_IndividualAuthImpl( bool useLocalDB)
+        public async Task RazorPagesTemplate_IndividualAuthImplAsync( bool useLocalDB)
         {
             Project.RunDotNetNew("razor", auth: "Individual", useLocalDB: useLocalDB);
 
@@ -64,9 +65,9 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/");
-                    aspNetProcess.AssertOk("/Identity/Account/Login");
-                    aspNetProcess.AssertOk("/Privacy");
+                    await aspNetProcess.AssertOk("/");
+                    await aspNetProcess.AssertOk("/Identity/Account/Login");
+                    await aspNetProcess.AssertOk("/Privacy");
                 }
             }
         }

@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -19,7 +20,7 @@ namespace Templates.Test
         [Theory]
         [InlineData(null)]
         [InlineData("F#")]
-        private void MvcTemplate_NoAuthImpl(string languageOverride)
+        public async Task MvcTemplate_NoAuthImplAsync(string languageOverride)
         {
             Project.RunDotNetNew("mvc", language: languageOverride);
 
@@ -40,8 +41,8 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/");
-                    aspNetProcess.AssertOk("/Home/Privacy");
+                    await aspNetProcess.AssertOk("/");
+                    await aspNetProcess.AssertOk("/Home/Privacy");
                 }
             }
         }
@@ -49,7 +50,7 @@ namespace Templates.Test
         [Theory]
         [InlineData(true)]
         [InlineData(false)]
-        public void MvcTemplate_IndividualAuthImpl(bool useLocalDB)
+        public async Task MvcTemplate_IndividualAuthImplAsync(bool useLocalDB)
         {
             Project.RunDotNetNew("mvc", auth: "Individual", useLocalDB: useLocalDB);
 
@@ -71,9 +72,9 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/");
-                    aspNetProcess.AssertOk("/Identity/Account/Login");
-                    aspNetProcess.AssertOk("/Home/Privacy");
+                    await aspNetProcess.AssertOk("/");
+                    await aspNetProcess.AssertOk("/Identity/Account/Login");
+                    await aspNetProcess.AssertOk("/Home/Privacy");
                 }
             }
         }

@@ -1,6 +1,7 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.Threading.Tasks;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -17,7 +18,7 @@ namespace Templates.Test
         public Project Project { get; }
 
         [Fact]
-        public void WebApiTemplate()
+        public async Task WebApiTemplateAsync()
         {
             Project.RunDotNetNew("webapi");
 
@@ -25,8 +26,8 @@ namespace Templates.Test
             {
                 using (var aspNetProcess = Project.StartAspNetProcess(publish))
                 {
-                    aspNetProcess.AssertOk("/api/values");
-                    aspNetProcess.AssertNotFound("/");
+                    await aspNetProcess.AssertOk("/api/values");
+                    await aspNetProcess.AssertNotFound("/");
                 }
             }
         }

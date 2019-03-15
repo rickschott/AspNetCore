@@ -32,7 +32,7 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public Task DisposeAsync()
         {
-            _browser.Value.Dispose();
+            _browser.Value?.Dispose();
             return Task.CompletedTask;
         }
 
