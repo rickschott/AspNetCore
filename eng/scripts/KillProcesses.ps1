@@ -10,6 +10,7 @@ function _kill($processName) {
     }
 }
 
+<<<<<<< HEAD
 function _killJavaInstances() {
     $_javaProcesses = Get-Process java -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -like "$env:JAVA_HOME*" };
@@ -19,6 +20,15 @@ function _killJavaInstances() {
         } catch {
             Write-Host "Failed to kill java process: $proc"
         }
+=======
+function _killJavaInstances(){
+    try {
+        Get-Process java |
+            Where-Object { $_.Path -like "$env:JAVA_HOME*" } |
+            Stop-Process;
+    } catch {
+        Write-Host "Failed to kill java processes"
+>>>>>>> Cleanup kill script
     }
 }
 
