@@ -72,6 +72,20 @@ namespace Templates.Test.Helpers
 
         private static void InstallTemplatePackages(ITestOutputHelper output)
         {
+            var builtPackages = typeof(TemplatePackageInstaller).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Where(a => a.Key == "TemplatePackageMetadata").Select(kvp => kvp.Value)
+                .ToArray();
+
+            output.WriteLine("Built packages found:");
+            foreach (var package in builtPackages)
+            {
+                output.WriteLine(package);
+            }
+
+            Assert.All(builtPackages, b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
+            Assert.Equal(4, builtPackages.Length);
+
             // Remove any previous or prebundled version of the template packages
             foreach (var packageName in _templatePackages)
             {
@@ -87,20 +101,6 @@ namespace Templates.Test.Helpers
             VerifyCannotFindTemplate(output, "react");
             VerifyCannotFindTemplate(output, "reactredux");
             VerifyCannotFindTemplate(output, "angular");
-
-            var builtPackages = typeof(TemplatePackageInstaller).Assembly
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .Where(a => a.Key == "TemplatePackageMetadata").Select(kvp => kvp.Value)
-            .ToArray();
-
-            output.WriteLine("Built packages found:");
-            foreach (var package in builtPackages)
-            {
-                output.WriteLine(package);
-            }
-
-            Assert.All(builtPackages, b => _templatePackages.Any(t => Path.GetFileName(b).StartsWith(t, StringComparison.OrdinalIgnoreCase)));
-            Assert.Equal(4, builtPackages.Length);
 
             foreach (var packagePath in builtPackages)
             {
