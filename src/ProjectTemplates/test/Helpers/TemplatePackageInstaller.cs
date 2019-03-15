@@ -77,6 +77,13 @@ namespace Templates.Test.Helpers
                 .Where(a => a.Key == "TemplatePackageMetadata").Select(kvp => kvp.Value)
                 .ToArray();
 
+            output.WriteLine("All metadata attributes:");
+            foreach (var attr in typeof(TemplatePackageInstaller).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>())
+            {
+                output.WriteLine($"{attr.Key}=\"{attr.Value}\"");
+            }
+
             output.WriteLine("Built packages found:");
             foreach (var package in builtPackages)
             {
