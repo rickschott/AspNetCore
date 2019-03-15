@@ -65,7 +65,10 @@ export class HttpConnection implements IConnection {
     public onreceive: ((data: string | ArrayBuffer) => void) | null;
     public onclose: ((e?: Error) => void) | null;
     public onreconnecting: ((e?: Error) => void) | null;
-    public onreconnected: ((e?: Error) => void) | null;
+
+    // REVIEW: I would like to have a connectionId param here to highlight it will change,
+    // but we don't currently expose connectionId.
+    public onreconnected: (() => void) | null;
 
     constructor(url: string, options: IHttpConnectionOptions = {}) {
         Arg.isRequired(url, "url");
@@ -132,21 +135,15 @@ export class HttpConnection implements IConnection {
 
     public async stop(error?: Error): Promise<void> {
         this.connectionState = ConnectionState.Disconnected;
-        // Set error as soon as possible otherwise there is a race between
-        // the transport closing and providing an error and the error from a close message
-        // We would prefer the close message error.
-        this.stopError = error;
+        await this.stopTransport(false, error);
+    }
 
+    public async connectionLost(error: Error) {
         try {
-            await this.startPromise;
+            await this.stopTransport(true, error);
         } catch (e) {
-            // this exception is returned to the user as a rejected Promise from the start method
-        }
-
-        // The transport's onclose will trigger stopConnection which will run our onclose event.
-        if (this.transport) {
-            await this.transport.stop();
-            this.transport = undefined;
+            this.connectionState = ConnectionState.Disconnected;
+            throw e;
         }
     }
 
@@ -233,6 +230,30 @@ export class HttpConnection implements IConnection {
 
             this.transport = undefined;
             return Promise.reject(e);
+        }
+    }
+
+    private async stopTransport(allowReconnect: boolean, error?: Error) {
+        // Set error as soon as possible otherwise there is a race between
+        // the transport closing and providing an error and the error from a close message
+        // We would prefer the close message error.
+        this.stopError = error;
+
+        try {
+            await this.startPromise;
+        } catch (e) {
+            // this exception is returned to the user as a rejected Promise from the start method
+        }
+
+        // The transport's onclose will trigger stopConnection which will run our onclose event.
+        if (this.transport) {
+            if (!allowReconnect) {
+                // Reset the transport's onclose callback to not call this.reconnect.
+                this.transport!.onclose = (e) => this.stopConnection(e);
+            }
+
+            await this.transport.stop();
+            this.transport = undefined;
         }
     }
 
@@ -419,7 +440,12 @@ export class HttpConnection implements IConnection {
         }
 
         if (this.onreconnecting) {
-            this.onreconnecting();
+            this.onreconnecting(error);
+
+            // Exit early if the onreconnecting callback called connection.stop().
+            if (this.connectionState !== ConnectionState.Reconnecting) {
+                return;
+            }
         }
 
         while (nextRetryDelay != null) {

@@ -10,7 +10,11 @@ export interface IConnection {
     start(transferFormat: TransferFormat): Promise<void>;
     send(data: string | ArrayBuffer): Promise<void>;
     stop(error?: Error): Promise<void>;
+    connectionLost(error: Error): Promise<void>;
 
     onreceive: ((data: string | ArrayBuffer) => void) | null;
     onclose: ((error?: Error) => void) | null;
+
+    onreconnecting: ((e?: Error) => void) | null;
+    onreconnected: (() => void) | null;
 }

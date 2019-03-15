@@ -18,6 +18,8 @@ export enum HubConnectionState {
     Disconnected,
     /** The hub connection is connected. */
     Connected,
+    /** The hub connection is reconnecting. */
+    Reconnecting,
 }
 
 /** Represents a connection to a SignalR Hub. */
@@ -31,7 +33,10 @@ export class HubConnection {
     private methods: { [name: string]: Array<(...args: any[]) => void> };
     private invocationId: number;
     private closedCallbacks: Array<(error?: Error) => void>;
+    private reconnectingCallbacks: Array<(error?: Error) => void>;
+    private reconnectedCallbacks: Array<() => void>;
     private receivedHandshakeResponse: boolean;
+    private handshakePromise!: Promise<{}>;
     private handshakeResolver!: (value?: PromiseLike<{}>) => void;
     private handshakeRejecter!: (reason?: any) => void;
     private connectionState: HubConnectionState;
@@ -80,10 +85,14 @@ export class HubConnection {
 
         this.connection.onreceive = (data: any) => this.processIncomingData(data);
         this.connection.onclose = (error?: Error) => this.connectionClosed(error);
+        this.connection.onreconnecting = (error?: Error) => this.connectionReconnecting(error);
+        this.connection.onreconnected = () => this.connectionReconnected();
 
         this.callbacks = {};
         this.methods = {};
         this.closedCallbacks = [];
+        this.reconnectingCallbacks = [];
+        this.reconnectedCallbacks = [];
         this.invocationId = 0;
         this.receivedHandshakeResponse = false;
         this.connectionState = HubConnectionState.Disconnected;
@@ -101,21 +110,32 @@ export class HubConnection {
      * @returns {Promise<void>} A Promise that resolves when the connection has been successfully established, or rejects with an error.
      */
     public async start(): Promise<void> {
+        this.logger.log(LogLevel.Debug, "Starting HubConnection.");
+
+        // Set up the promise before connecting. Otherwise, it could race with received messages.
+        this.initializeHandshakePromise();
+
+        await this.connection.start(this.protocol.transferFormat);
+
+        // Wait for the handshake to complete before marking connection as connected
+        await this.doHandshake();
+        this.connectionState = HubConnectionState.Connected;
+    }
+
+    private initializeHandshakePromise() {
+        this.receivedHandshakeResponse = false;
+        // Set up the promise before any connection is (re)started otherwise it could race with received messages
+        this.handshakePromise = new Promise((resolve, reject) => {
+            this.handshakeResolver = resolve;
+            this.handshakeRejecter = reject;
+        });
+    }
+
+    private async doHandshake() {
         const handshakeRequest: HandshakeRequestMessage = {
             protocol: this.protocol.name,
             version: this.protocol.version,
         };
-
-        this.logger.log(LogLevel.Debug, "Starting HubConnection.");
-
-        this.receivedHandshakeResponse = false;
-        // Set up the promise before any connection is started otherwise it could race with received messages
-        const handshakePromise = new Promise((resolve, reject) => {
-            this.handshakeResolver = resolve;
-            this.handshakeRejecter = reject;
-        });
-
-        await this.connection.start(this.protocol.transferFormat);
 
         this.logger.log(LogLevel.Debug, "Sending handshake request.");
 
@@ -128,9 +148,7 @@ export class HubConnection {
         this.resetTimeoutPeriod();
         this.resetKeepAliveInterval();
 
-        // Wait for the handshake to complete before marking connection as connected
-        await handshakePromise;
-        this.connectionState = HubConnectionState.Connected;
+        await this.handshakePromise;
     }
 
     /** Stops the connection.
@@ -348,6 +366,26 @@ export class HubConnection {
         }
     }
 
+    /** Registers a handler that will be invoked when the connection starts reconnecting.
+     *
+     * @param {Function} callback The handler that will be invoked when the connection start reconnecting. Optionally receives a single argument containing the error that caused the connection to start reconnecting (if any).
+     */
+    public onreconnecting(callback: (error?: Error) => void) {
+        if (callback) {
+            this.reconnectingCallbacks.push(callback);
+        }
+    }
+
+    /** Registers a handler that will be invoked when the connection successfully reconnects.
+     *
+     * @param {Function} callback The handler that will be invoked when the connection successfully reconnects.
+     */
+    public onreconnected(callback: () => void) {
+        if (callback) {
+            this.reconnectedCallbacks.push(callback);
+        }
+    }
+
     private processIncomingData(data: any) {
         this.cleanupTimeout();
 
@@ -458,7 +496,7 @@ export class HubConnection {
         // The server hasn't talked to us in a while. It doesn't like us anymore ... :(
         // Terminate the connection, but we don't need to wait on the promise.
         // tslint:disable-next-line:no-floating-promises
-        this.connection.stop(new Error("Server timeout elapsed without receiving a message from the server."));
+        this.connection.connectionLost(new Error("Server timeout elapsed without receiving a message from the server."));
     }
 
     private invokeClientMethod(invocationMessage: InvocationMessage) {
@@ -480,9 +518,6 @@ export class HubConnection {
     }
 
     private connectionClosed(error?: Error) {
-        const callbacks = this.callbacks;
-        this.callbacks = {};
-
         this.connectionState = HubConnectionState.Disconnected;
 
         // if handshake is in progress start will be waiting for the handshake promise, so we complete it
@@ -491,16 +526,65 @@ export class HubConnection {
             this.handshakeRejecter(error);
         }
 
-        Object.keys(callbacks)
-            .forEach((key) => {
-                const callback = callbacks[key];
-                callback(null, error ? error : new Error("Invocation canceled due to connection being closed."));
-            });
+        this.cancelCallbacksWithError(error ? error : new Error("Invocation canceled due to connection being closed."));
 
         this.cleanupTimeout();
         this.cleanupPingTimer();
 
         this.closedCallbacks.forEach((c) => c.apply(this, [error]));
+    }
+
+    private connectionReconnecting(error?: Error) {
+        if (this.connectionState !== HubConnectionState.Connected) {
+            // The handshake never completed. Just stop the connection which should reject the handshake promise and therefore also start().
+            this.logger.log(LogLevel.Information, "The underlying connection started reconnecting before the hub handshake completed. Stopping.");
+            // tslint:disable-next-line:no-floating-promises
+            this.stop();
+            return;
+        }
+
+        this.connectionState = HubConnectionState.Reconnecting;
+
+        this.cancelCallbacksWithError(error ? error : new Error("Invocation canceled due to connection reconnecting."));
+
+        this.cleanupTimeout();
+        this.cleanupPingTimer();
+
+        this.reconnectingCallbacks.forEach((c) => c.apply(this, [error]));
+
+        // Set up the promise before reconnecting. Otherwise, it could race with received messages.
+        this.initializeHandshakePromise();
+    }
+
+    private connectionReconnected() {
+        if (this.connectionState !== HubConnectionState.Reconnecting) {
+            return;
+        }
+
+        async function doHandshake(hubConnection: HubConnection) {
+            try {
+                await hubConnection.doHandshake();
+                hubConnection.connectionState = HubConnectionState.Connected;
+                hubConnection.reconnectedCallbacks.forEach((c) => c.apply(hubConnection));
+            } catch (e) {
+                hubConnection.logger.log(LogLevel.Information, "Could not complete the hub handshake after the underlying connection started reconnected. Stopping. Error: " + e);
+                await hubConnection.stop();
+            }
+        }
+
+        // tslint:disable-next-line:no-floating-promises
+        doHandshake(this);
+    }
+
+    private cancelCallbacksWithError(error: Error) {
+        const callbacks = this.callbacks;
+        this.callbacks = {};
+
+        Object.keys(callbacks)
+            .forEach((key) => {
+                const callback = callbacks[key];
+                callback(null, error);
+            });
     }
 
     private cleanupPingTimer(): void {
