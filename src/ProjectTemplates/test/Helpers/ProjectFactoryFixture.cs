@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.CommandLineUtils;
 using Templates.Test.Helpers;
 using Xunit;
@@ -19,6 +20,7 @@ namespace ProjectTemplates.Tests.Helpers
     public class ProjectFactoryFixture : IDisposable
     {
         private static object DotNetNewLock = new object();
+        private static SemaphoreSlim _asyncSemaphore = new SemaphoreSlim(1);
 
         private ConcurrentDictionary<string, Project> _projects = new ConcurrentDictionary<string, Project>();
 
@@ -37,6 +39,7 @@ namespace ProjectTemplates.Tests.Helpers
                  var project = new Project
                  {
                      DotNetNewLock = DotNetNewLock,
+                     Semaphore = _asyncSemaphore,
                      Output = outputHelper,
                      DiagnosticsMessageSink = DiagnosticsMessageSink,
                      ProjectGuid = Guid.NewGuid().ToString("N").Substring(0, 6)
@@ -83,9 +86,17 @@ namespace ProjectTemplates.Tests.Helpers
         public string ProjectName { get; set; }
         public string ProjectGuid { get; set; }
         public string TemplateOutputDir { get; set; }
+
+        public string TemplateBuildDir =>
+            Path.Combine(TemplateOutputDir, "bin", "Debug", AspNetProcess.DefaultFramework);
+
+        public string TemplatePublishDir =>
+            Path.Combine(TemplateOutputDir, "bin", "Release", AspNetProcess.DefaultFramework, "publish");
+
         public ITestOutputHelper Output { get; set; }
         public object DotNetNewLock { get; set; }
         public IMessageSink DiagnosticsMessageSink { get; set; }
+        public SemaphoreSlim Semaphore { get; set; }
 
         public void RunDotNetNew(string templateName, string auth = null, string language = null, bool useLocalDB = false, bool noHttps = false)
         {
@@ -121,7 +132,91 @@ namespace ProjectTemplates.Tests.Helpers
             }
         }
 
-        public void RunDotNet(string arguments)
+        internal async Task<ProcessEx> RunDotNetNewAsync(string templateName, string auth = null, string language = null, bool useLocalDB = false, bool noHttps = false)
+        {
+            var args = $"new {templateName} --debug:custom-hive \"{TemplatePackageInstaller.CustomHivePath}\"";
+
+            if (!string.IsNullOrEmpty(auth))
+            {
+                args += $" --auth {auth}";
+            }
+
+            if (!string.IsNullOrEmpty(language))
+            {
+                args += $" -lang {language}";
+            }
+
+            if (useLocalDB)
+            {
+                args += $" --use-local-db";
+            }
+
+            if (noHttps)
+            {
+                args += $" --no-https";
+            }
+
+            args += $" -o {TemplateOutputDir}";
+
+            // Only run one instance of 'dotnet new' at once, as a workaround for
+            // https://github.com/aspnet/templating/issues/63
+
+            await Semaphore.WaitAsync();
+
+            try
+            {
+                var execution = ProcessEx.Run(Output, AppContext.BaseDirectory, DotNetMuxer.MuxerPathOrDefault(), args);
+                await execution.Exited;
+                return execution;
+            }
+            finally
+            {
+                Semaphore.Release();
+            }
+        }
+
+        internal async Task<ProcessEx> RunDotNetPublishAsync()
+        {
+            Output.WriteLine("Publishing ASP.NET application...");
+
+            // Workaround for issue with runtime store not yet being published
+            // https://github.com/aspnet/Home/issues/2254#issuecomment-339709628
+            var extraArgs = "-p:PublishWithAspNetCoreTargetManifest=false";
+
+            // This is going to trigger a build, so we need to acquire the lock like in the other cases. At least for NPM related things.
+            await Semaphore.WaitAsync();
+            try
+            {
+                var result = ProcessEx.Run(Output, TemplateOutputDir, DotNetMuxer.MuxerPathOrDefault(), $"publish -c Release {extraArgs}");
+                await result.Exited;
+                return result;
+            }
+            finally
+            {
+                Semaphore.Release();
+            }
+        }
+
+        internal async Task<ProcessEx> RunDotNetBuildAsync()
+        {
+            Output.WriteLine("Building ASP.NET application...");
+
+            // This is going to trigger a build, so we need to acquire the lock like in the other cases. At least for NPM related things.
+            await Semaphore.WaitAsync();
+            try
+            {
+                var result = ProcessEx.Run(Output, TemplateOutputDir, DotNetMuxer.MuxerPathOrDefault(), "build -c Debug");
+                await result.Exited;
+                return result;
+            }
+            finally
+            {
+                Semaphore.Release();
+            }
+        }
+
+
+        public void RunDotNetNewRaw(string arguments)
         {
             lock (DotNetNewLock)
             {
@@ -151,6 +246,31 @@ namespace ProjectTemplates.Tests.Helpers
             lock (DotNetNewLock)
             {
                 ProcessEx.Run(Output, TemplateOutputDir, DotNetMuxer.MuxerPathOrDefault(), args).WaitForExit(assertSuccess: true);
+            }
+        }
+
+        internal async Task<ProcessEx> RunDotNetEfCreateMigrationAsync(string migrationName)
+        {
+            var assembly = typeof(ProjectFactoryFixture).Assembly;
+
+            var dotNetEfFullPath = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .First(attribute => attribute.Key == "DotNetEfFullPath")
+                .Value;
+
+            var args = $"\"{dotNetEfFullPath}\" --verbose --no-build migrations add {migrationName}";
+
+            // Only run one instance of 'dotnet new' at once, as a workaround for
+            // https://github.com/aspnet/templating/issues/63
+            await Semaphore.WaitAsync();
+            try
+            {
+                var result = ProcessEx.Run(Output, TemplateOutputDir, DotNetMuxer.MuxerPathOrDefault(), args);
+                await result.Exited;
+                return result;
+            }
+            finally
+            {
+                Semaphore.Release();
             }
         }
 
@@ -222,6 +342,30 @@ namespace ProjectTemplates.Tests.Helpers
         {
             return new AspNetProcess(Output, TemplateOutputDir, ProjectName, publish);
         }
+
+        internal AspNetProcess StartBuiltProjectAsync()
+        {
+            var environment = new Dictionary<string, string>
+            {
+                ["ASPNETCORE_URLS"] = $"http://127.0.0.1:0;https://127.0.0.1:0",
+                ["ASPNETCORE_ENVIRONMENT"] = "Development"
+            };
+
+            var projectDll = Path.Combine(TemplateBuildDir, $"{ProjectName}.dll");
+            return new AspNetProcess(Output, TemplateOutputDir, projectDll, environment);
+        }
+
+        internal AspNetProcess StartPublishedProjectAsync()
+        {
+            var environment = new Dictionary<string, string>
+            {
+                ["ASPNETCORE_URLS"] = $"http://127.0.0.1:0;https://127.0.0.1:0",
+            };
+
+            var projectDll = $"{ProjectName}.dll";
+            return new AspNetProcess(Output, TemplatePublishDir, projectDll, environment);
+        }
+
 
         public void Dispose()
         {

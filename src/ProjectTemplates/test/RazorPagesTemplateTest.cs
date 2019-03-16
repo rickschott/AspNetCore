@@ -28,7 +28,8 @@ namespace Templates.Test
         {
             Project = ProjectFactory.CreateProject("razorpagesnoauth", Output);
 
-            Project.RunDotNetNew("razor");
+            var createResult = await Project.RunDotNetNewAsync("razor");
+            Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
 
             Project.AssertFileExists("Pages/Shared/_LoginPartial.cshtml", false);
 
@@ -39,13 +40,26 @@ namespace Templates.Test
             Assert.DoesNotContain("Microsoft.EntityFrameworkCore.Tools.DotNet", projectFileContents);
             Assert.DoesNotContain("Microsoft.Extensions.SecretManager.Tools", projectFileContents);
 
-            foreach (var publish in new[] { false, true })
+            var publishResult = await Project.RunDotNetPublishAsync();
+            Assert.True(0 == publishResult.ExitCode, publishResult.GetFormattedOutput());
+
+            // Run dotnet build after publish. The reason is that one uses Config = Debug and the other uses Config = Release
+            // The output from publish will go into bin/Release/netcoreapp3.0/publish and won't be affected by calling build
+            // later, while the opposite is not true.
+
+            var buildResult = await Project.RunDotNetBuildAsync();
+            Assert.True(0 == buildResult.ExitCode, buildResult.GetFormattedOutput());
+
+            using (var aspNetProcess = Project.StartBuiltProjectAsync())
             {
-                using (var aspNetProcess = Project.StartAspNetProcess(publish))
-                {
-                    await aspNetProcess.AssertOk("/");
-                    await aspNetProcess.AssertOk("/Privacy");
-                }
+                await aspNetProcess.AssertOk("/");
+                await aspNetProcess.AssertOk("/Privacy");
+            }
+
+            using (var aspNetProcess = Project.StartPublishedProjectAsync())
+            {
+                await aspNetProcess.AssertOk("/");
+                await aspNetProcess.AssertOk("/Privacy");
             }
         }
 
@@ -56,7 +70,8 @@ namespace Templates.Test
         {
             Project = ProjectFactory.CreateProject("razorpagesindividual" + (useLocalDB ? "uld" : ""), Output);
 
-            Project.RunDotNetNew("razor", auth: "Individual", useLocalDB: useLocalDB);
+            var createResult = await Project.RunDotNetNewAsync("razor", auth: "Individual", useLocalDB: useLocalDB);
+            Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
 
             Project.AssertFileExists("Pages/Shared/_LoginPartial.cshtml", true);
 
@@ -66,18 +81,32 @@ namespace Templates.Test
                 Assert.Contains(".db", projectFileContents);
             }
 
-            Project.RunDotNetEfCreateMigration("razorpages");
+            var publishResult = await Project.RunDotNetPublishAsync();
+            Assert.True(0 == publishResult.ExitCode, publishResult.GetFormattedOutput());
 
+            // Run dotnet build after publish. The reason is that one uses Config = Debug and the other uses Config = Release
+            // The output from publish will go into bin/Release/netcoreapp3.0/publish and won't be affected by calling build
+            // later, while the opposite is not true.
+
+            var buildResult = await Project.RunDotNetBuildAsync();
+            Assert.True(0 == buildResult.ExitCode, buildResult.GetFormattedOutput());
+
+            var migrationsResult = await Project.RunDotNetEfCreateMigrationAsync("razorpages");
+            Assert.True(0 == migrationsResult.ExitCode, migrationsResult.GetFormattedOutput());
             Project.AssertEmptyMigration("razorpages");
 
-            foreach (var publish in new[] { false, true })
+            using (var aspNetProcess = Project.StartBuiltProjectAsync())
             {
-                using (var aspNetProcess = Project.StartAspNetProcess(publish))
-                {
-                    await aspNetProcess.AssertOk("/");
-                    await aspNetProcess.AssertOk("/Identity/Account/Login");
-                    await aspNetProcess.AssertOk("/Privacy");
-                }
+                await aspNetProcess.AssertOk("/");
+                await aspNetProcess.AssertOk("/Identity/Account/Login");
+                await aspNetProcess.AssertOk("/Privacy");
+            }
+
+            using (var aspNetProcess = Project.StartPublishedProjectAsync())
+            {
+                await aspNetProcess.AssertOk("/");
+                await aspNetProcess.AssertOk("/Identity/Account/Login");
+                await aspNetProcess.AssertOk("/Privacy");
             }
         }
     }

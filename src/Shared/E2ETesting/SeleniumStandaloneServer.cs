@@ -3,10 +3,14 @@
 
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Internal;
 using Xunit.Abstractions;
@@ -16,8 +20,7 @@ namespace Microsoft.AspNetCore.E2ETesting
     class SeleniumStandaloneServer
     {
         private static SeleniumStandaloneServer _instance = null;
-        private static Task<SeleniumStandaloneServer> _instanceTask = null;
-        private static object _lock = new object();
+        private static SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
         public SeleniumStandaloneServer(Uri uri)
         {
@@ -28,18 +31,17 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public static async Task<SeleniumStandaloneServer> GetInstanceAsync(ITestOutputHelper output)
         {
-            lock (_lock)
+            await _semaphore.WaitAsync();
+            try
             {
-                if (_instanceTask == null)
+                if (_instance == null)
                 {
-                    _instanceTask = CreateInstance(output);
+                    _instance = await CreateInstance(output);
                 }
             }
-
-            var instance = await _instanceTask;
-            lock (_lock)
+            finally
             {
-                _instance = instance;
+                _semaphore.Release();
             }
 
             return _instance;
@@ -64,7 +66,16 @@ namespace Microsoft.AspNetCore.E2ETesting
                 psi.Arguments = $"/c npm {psi.Arguments}";
             }
 
+            // It's important that we get the folder value before we start the process to prevent
+            // untracked processes when the tracking folder is not correctly configure.
+            var trackingFolder = GetProcessTrackingFolder();
+            if (!Directory.Exists(trackingFolder))
+            {
+                throw new InvalidOperationException($"Invalid tracking folder. Set the 'SeleniumProcessTrackingFolder' MSBuild property to a valid folder.");
+            }
+
             var process = Process.Start(psi);
+            await WriteTrackingFileAsync(output, trackingFolder, process);
 
             process.OutputDataReceived += LogOutput;
             process.ErrorDataReceived += LogOutput;
@@ -96,8 +107,9 @@ namespace Microsoft.AspNetCore.E2ETesting
             };
 
             var retries = 0;
-            while (retries++ < 30)
+            do
             {
+                await Task.Delay(1000);
                 try
                 {
                     var response = await httpClient.GetAsync(uri);
@@ -110,10 +122,29 @@ namespace Microsoft.AspNetCore.E2ETesting
                 {
                 }
 
-                await Task.Delay(1000);
-            }
+                retries++;
+            } while (retries < 30);
 
             throw new Exception("Failed to launch the server");
+        }
+
+        private static async Task WriteTrackingFileAsync(ITestOutputHelper output, string trackingFolder, Process process)
+        {
+            var pidFile = Path.Combine(trackingFolder, $"{process.Id}.{Guid.NewGuid()}.pid");
+            for (var i = 0; i < 3; i++)
+            {
+                try
+                {
+                    await File.WriteAllTextAsync(pidFile, process.Id.ToString());
+                    return;
+                }
+                catch
+                {
+                    output.WriteLine($"Can't write file to process tracking folder: {trackingFolder}");
+                }
+            }
+
+            throw new InvalidOperationException($"Failed to write file for process {process.Id}");
         }
 
         static int FindAvailablePort()
@@ -130,5 +161,10 @@ namespace Microsoft.AspNetCore.E2ETesting
                 listener.Stop();
             }
         }
+
+        private static string GetProcessTrackingFolder() =>
+            typeof(SeleniumStandaloneServer).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Single(a => a.Key == "Microsoft.AspNetCore.Testing.Selenium.ProcessTracking").Value;
     }
 }

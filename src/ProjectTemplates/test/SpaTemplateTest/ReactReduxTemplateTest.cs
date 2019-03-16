@@ -16,8 +16,8 @@ namespace Templates.Test.SpaTemplateTest
         {
         }
 
-        [Fact(Skip = "https://github.com/aspnet/AspNetCore/issues/7377")]
+        [Fact]
         public Task ReactReduxTemplate_Works_NetCore()
-            => SpaTemplateImplAsync("reactredux", "reactredux");
+            => SpaTemplateImplAsync("reactredux", "reactredux",useLocalDb: false, usesAuth: false);
     }
 }

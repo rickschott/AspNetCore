@@ -10,25 +10,31 @@ function _kill($processName) {
     }
 }
 
-<<<<<<< HEAD
 function _killJavaInstances() {
     $_javaProcesses = Get-Process java -ErrorAction SilentlyContinue |
         Where-Object { $_.Path -like "$env:JAVA_HOME*" };
     foreach($_javaProcess in $_javaProcesses) {
         try {
-            Stop-Process $proc
+            Stop-Process $_javaProcess
         } catch {
-            Write-Host "Failed to kill java process: $proc"
+            Write-Host "Failed to kill java process: $_javaProcess"
         }
-=======
-function _killJavaInstances(){
-    try {
-        Get-Process java |
-            Where-Object { $_.Path -like "$env:JAVA_HOME*" } |
-            Stop-Process;
-    } catch {
-        Write-Host "Failed to kill java processes"
->>>>>>> Cleanup kill script
+    }
+}
+
+function _killSeleniumTrackedProcesses() {
+    $files = Get-ChildItem $env:SeleniumProcessTrackingFolder -ErrorAction SilentlyContinue;
+    # PID files have a format of <<pid>>.<<guid>>.pid
+    $pids = $files |
+        Where-Object { $_.Name -match "([0-9]+)\..*?.pid"; } |
+        Foreach-Object { $Matches[1] };
+
+    foreach ($pid in $pids) {
+        try {
+            & cmd /c "taskkill /T /F /PID $pid 2>&1"
+        } catch {
+            Write-Host "Failed to kill process: $pid"
+        }
     }
 }
 
@@ -45,6 +51,7 @@ _kill chrome.exe
 _kill h2spec.exe
 _kill WerFault.exe
 _killJavaInstances
+_killSeleniumTrackedProcesses
 
 if (Get-Command iisreset -ErrorAction ignore) {
     iisreset /restart

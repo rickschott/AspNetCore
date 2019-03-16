@@ -19,7 +19,7 @@ namespace Templates.Test.Helpers
 {
     public class AspNetProcess : IDisposable
     {
-        private const string DefaultFramework = "netcoreapp3.0";
+        public const string DefaultFramework = "netcoreapp3.0";
         private const string ListeningMessagePrefix = "Now listening on: ";
 
         private readonly ProcessEx _process;
@@ -41,31 +41,6 @@ namespace Templates.Test.Helpers
             var now = DateTimeOffset.Now;
             new CertificateManager().EnsureAspNetCoreHttpsDevelopmentCertificate(now, now.AddYears(1));
 
-            if (publish)
-            {
-                output.WriteLine("Publishing ASP.NET application...");
-
-                // Workaround for issue with runtime store not yet being published
-                // https://github.com/aspnet/Home/issues/2254#issuecomment-339709628
-                var extraArgs = "-p:PublishWithAspNetCoreTargetManifest=false";
-
-                ProcessEx
-                    .Run(output, workingDirectory, DotNetMuxer.MuxerPathOrDefault(), $"publish -c Release {extraArgs}")
-                    .WaitForExit(assertSuccess: true);
-                workingDirectory = Path.Combine(workingDirectory, "bin", "Release", DefaultFramework, "publish");
-                if (File.Exists(Path.Combine(workingDirectory, "ClientApp", "package.json")))
-                {
-                    Npm.RestoreWithRetry(output, Path.Combine(workingDirectory, "ClientApp"));
-                }
-            }
-            else
-            {
-                output.WriteLine("Building ASP.NET application...");
-                ProcessEx
-                    .Run(output, workingDirectory, DotNetMuxer.MuxerPathOrDefault(), "build -c Debug")
-                    .WaitForExit(assertSuccess: true);
-            }
-
             var envVars = new Dictionary<string, string>
             {
                 { "ASPNETCORE_URLS", $"http://127.0.0.1:0;https://127.0.0.1:0" }
@@ -82,6 +57,32 @@ namespace Templates.Test.Helpers
             _process = ProcessEx.Run(output, workingDirectory, DotNetMuxer.MuxerPathOrDefault(), $"exec {dllPath}", envVars: envVars);
             _listeningUri = GetListeningUri(output);
         }
+
+        public AspNetProcess(
+            ITestOutputHelper output,
+            string workingDirectory,
+            string dllPath,
+            IDictionary<string,string> environmentVariables)
+        {
+            _output = output;
+            _httpClient = new HttpClient(new HttpClientHandler()
+            {
+                AllowAutoRedirect = true,
+                UseCookies = true,
+                CookieContainer = new CookieContainer(),
+                ServerCertificateCustomValidationCallback = (m, c, ch, p) => true
+            });
+
+            var now = DateTimeOffset.Now;
+            new CertificateManager().EnsureAspNetCoreHttpsDevelopmentCertificate(now, now.AddYears(1));
+
+
+            output.WriteLine("Running ASP.NET application...");
+
+            _process = ProcessEx.Run(output, workingDirectory, DotNetMuxer.MuxerPathOrDefault(), $"exec {dllPath}", envVars: environmentVariables);
+            _listeningUri = GetListeningUri(output);
+        }
+
 
         public void VisitInBrowser(IWebDriver driver)
         {

@@ -14,16 +14,16 @@ namespace Templates.Test.SpaTemplateTest
         public AngularTemplateTest(ProjectFactoryFixture projectFactory, BrowserFixture browserFixture, ITestOutputHelper output)
             : base(projectFactory, browserFixture, output) { }
 
-        [Fact(Skip = "https://github.com/aspnet/AspNetCore-Internal/issues/1854")]
+        [Fact]
         public Task AngularTemplate_Works()
-            => SpaTemplateImplAsync("angularnoauth", "angular");
+            => SpaTemplateImplAsync("angularnoauth", "angular", useLocalDb: false, usesAuth: false);
 
         [Fact]
         public Task AngularTemplate_IndividualAuth_Works()
-            => SpaTemplateImpl_IndividualAuthAsync("angularindividual", "angular");
+            => SpaTemplateImplAsync("angularindividual", "angular", useLocalDb: false, usesAuth: true);
 
         [Fact]
         public Task AngularTemplate_IndividualAuth_Works_LocalDb()
-            => SpaTemplateImpl_IndividualAuthAsync("angularindividualuld", "angular", useLocalDb: true);
+            => SpaTemplateImplAsync("angularindividualuld", "angular", useLocalDb: true, usesAuth: true);
     }
 }

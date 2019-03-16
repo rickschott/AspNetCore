@@ -27,6 +27,16 @@ namespace Templates.Test.Helpers
         private BlockingCollection<string> _stdoutLines;
         private TaskCompletionSource<int> _exited;
 
+        internal string GetFormattedOutput()
+        {
+            if (!_process.HasExited)
+            {
+                throw new InvalidOperationException("Process has not finished running.");
+            }
+
+            return $"Process exited with code {_process.ExitCode}\nStdErr: {Error}\nStdOut: {Output}";
+        }
+
         public static ProcessEx Run(ITestOutputHelper output, string workingDirectory, string command, string args = null, IDictionary<string, string> envVars = null)
         {
             var startInfo = new ProcessStartInfo(command, args)
@@ -61,6 +71,17 @@ namespace Templates.Test.Helpers
                 : ("bash", "-c");
             Run(output, workingDirectory, shellExe, $"{argsPrefix} \"{commandAndArgs}\"")
                 .WaitForExit(assertSuccess: true);
+        }
+
+        public static async Task<ProcessEx> RunViaShellAsync(ITestOutputHelper output, string workingDirectory, string commandAndArgs)
+        {
+            var (shellExe, argsPrefix) = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? ("cmd", "/c")
+                : ("bash", "-c");
+
+            var result = Run(output, workingDirectory, shellExe, $"{argsPrefix} \"{commandAndArgs}\"");
+            await result.Exited;
+            return result;
         }
 
         public ProcessEx(ITestOutputHelper output, Process proc)

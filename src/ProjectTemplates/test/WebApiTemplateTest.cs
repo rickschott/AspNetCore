@@ -27,15 +27,29 @@ namespace Templates.Test
         {
             Project = FactoryFixture.CreateProject("webapi", Output);
 
-            Project.RunDotNetNew("webapi");
+            var createResult = await Project.RunDotNetNewAsync("webapi");
+            Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
 
-            foreach (var publish in new[] { false, true })
+            var publishResult = await Project.RunDotNetPublishAsync();
+            Assert.True(0 == publishResult.ExitCode, publishResult.GetFormattedOutput());
+
+            // Run dotnet build after publish. The reason is that one uses Config = Debug and the other uses Config = Release
+            // The output from publish will go into bin/Release/netcoreapp3.0/publish and won't be affected by calling build
+            // later, while the opposite is not true.
+
+            var buildResult = await Project.RunDotNetBuildAsync();
+            Assert.True(0 == buildResult.ExitCode, buildResult.GetFormattedOutput());
+
+            using (var aspNetProcess = Project.StartBuiltProjectAsync())
             {
-                using (var aspNetProcess = Project.StartAspNetProcess(publish))
-                {
-                    await aspNetProcess.AssertOk("/api/values");
-                    await aspNetProcess.AssertNotFound("/");
-                }
+                await aspNetProcess.AssertOk("/api/values");
+                await aspNetProcess.AssertNotFound("/");
+            }
+
+            using (var aspNetProcess = Project.StartPublishedProjectAsync())
+            {
+                await aspNetProcess.AssertOk("/api/values");
+                await aspNetProcess.AssertNotFound("/");
             }
         }
     }

@@ -35,68 +35,88 @@ namespace Templates.Test.SpaTemplateTest
         // Rather than using [Theory] to pass each of the different values for 'template',
         // it's important to distribute the SPA template tests over different test classes
         // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected async Task SpaTemplateImplAsync(string key, string template, bool noHttps = false)
+        protected async Task SpaTemplateImplAsync(
+            string key,
+            string template,
+            bool useLocalDb = false,
+            bool usesAuth = false)
         {
             Project = ProjectFactory.CreateProject(key, Output);
 
-            Project.RunDotNetNew(template, noHttps: noHttps);
+            var createResult = await Project.RunDotNetNewAsync(template, auth: usesAuth ? "Individual" : null, language: null, useLocalDb);
+            Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
 
-            // For some SPA templates, the NPM root directory is './ClientApp'. In other
-            // templates it's at the project root. Strictly speaking we shouldn't have
-            // to do the NPM restore in tests because it should happen automatically at
-            // build time, but by doing it up front we can avoid having multiple NPM
-            // installs run concurrently which otherwise causes errors when tests run
-            // in parallel.
+            // We shouldn't have to do the NPM restore in tests because it should happen
+            // automatically at build time, but by doing it up front we can avoid having
+            // multiple NPM installs run concurrently which otherwise causes errors when
+            // tests run in parallel.
             var clientAppSubdirPath = Path.Combine(Project.TemplateOutputDir, "ClientApp");
             Assert.True(File.Exists(Path.Combine(clientAppSubdirPath, "package.json")), "Missing a package.json");
-
-            Npm.RestoreWithRetry(Output, clientAppSubdirPath);
-            Npm.Test(Output, clientAppSubdirPath);
-
-            await TestApplicationAsync(publish: false);
-            await TestApplicationAsync(publish: true);
-        }
-
-        // Rather than using [Theory] to pass each of the different values for 'template',
-        // it's important to distribute the SPA template tests over different test classes
-        // so they can be run in parallel. Xunit doesn't parallelize within a test class.
-        protected async Task SpaTemplateImpl_IndividualAuthAsync(string key, string template, bool useLocalDb = false, bool noHttps = false)
-        {
-            Project = ProjectFactory.CreateProject(key, Output);
-
-            Project.RunDotNetNew(template, auth: "Individual", language: null, useLocalDb, noHttps: noHttps);
-
-            // For some SPA templates, the NPM root directory is './ClientApp'. In other
-            // templates it's at the project root. Strictly speaking we shouldn't have
-            // to do the NPM restore in tests because it should happen automatically at
-            // build time, but by doing it up front we can avoid having multiple NPM
-            // installs run concurrently which otherwise causes errors when tests run
-            // in parallel.
-            var clientAppSubdirPath = Path.Combine(Project.TemplateOutputDir, "ClientApp");
-            Assert.True(File.Exists(Path.Combine(clientAppSubdirPath, "package.json")), "Missing a package.json");
-
-            Npm.RestoreWithRetry(Output, clientAppSubdirPath);
-            Npm.Test(Output, clientAppSubdirPath);
 
             var projectFileContents = Project.ReadFile($"{Project.ProjectName}.csproj");
-            if (!useLocalDb)
+            if (usesAuth && !useLocalDb)
             {
                 Assert.Contains(".db", projectFileContents);
             }
 
-            Project.RunDotNetEfCreateMigration(template);
+            var npmRestoreResult = await Npm.RestoreWithRetryAsync(Output, clientAppSubdirPath);
+            Assert.True(0 == npmRestoreResult.ExitCode, npmRestoreResult.GetFormattedOutput());
 
-            Project.AssertEmptyMigration(template);
+            var lintResult = await ProcessEx.RunViaShellAsync(Output, clientAppSubdirPath, "npm run lint");
+            Assert.True(0 == lintResult.ExitCode, lintResult.GetFormattedOutput());
 
+            if (template == "react" || template == "reactredux")
+            {
+                var testResult = await ProcessEx.RunViaShellAsync(Output, clientAppSubdirPath, "npm run test");
+                Assert.True(0 == testResult.ExitCode, testResult.GetFormattedOutput());
+            }
 
-            await TestApplicationAsync(publish: false, visitFetchData: false);
+            var publishResult = await Project.RunDotNetPublishAsync();
+            Assert.True(0 == publishResult.ExitCode, publishResult.GetFormattedOutput());
 
-            UpdateSettingsForPublish();
+            // Run dotnet build after publish. The reason is that one uses Config = Debug and the other uses Config = Release
+            // The output from publish will go into bin/Release/netcoreapp3.0/publish and won't be affected by calling build
+            // later, while the opposite is not true.
 
-            await TestApplicationAsync(publish: true, visitFetchData: false);
+            var buildResult = await Project.RunDotNetBuildAsync();
+            Assert.True(0 == buildResult.ExitCode, buildResult.GetFormattedOutput());
+
+            if (usesAuth)
+            {
+                var migrationsResult = await Project.RunDotNetEfCreateMigrationAsync(template);
+                Assert.True(0 == migrationsResult.ExitCode, migrationsResult.GetFormattedOutput());
+                Project.AssertEmptyMigration(template);
+            }
+
+            using (var aspNetProcess = Project.StartBuiltProjectAsync())
+            {
+                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
+
+                if (BrowserFixture.IsHostAutomationSupported())
+                {
+                    aspNetProcess.VisitInBrowser(Browser);
+                    TestBasicNavigation(visitFetchData: !usesAuth);
+                }
+            }
+
+            if (usesAuth)
+            {
+                UpdatePublishedSettings();
+            }
+
+            using (var aspNetProcess = Project.StartPublishedProjectAsync())
+            {
+                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
+
+                if (BrowserFixture.IsHostAutomationSupported())
+                {
+                    aspNetProcess.VisitInBrowser(Browser);
+                    TestBasicNavigation(visitFetchData: !usesAuth);
+                }
+            }
         }
 
-        private void UpdateSettingsForPublish()
+        private void UpdatePublishedSettings()
         {
             // Hijack here the config file to use the development key during publish.
             var appSettings = JObject.Parse(File.ReadAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.json")));
@@ -113,21 +133,7 @@ namespace Templates.Test.SpaTemplateTest
                 }
             });
             var testAppSettings = appSettings.ToString();
-            File.WriteAllText(Path.Combine(Project.TemplateOutputDir, "appsettings.json"), testAppSettings);
-        }
-
-        private async Task TestApplicationAsync(bool publish, bool visitFetchData = true)
-        {
-            using (var aspNetProcess = Project.StartAspNetProcess(publish))
-            {
-                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
-
-                if (BrowserFixture.IsHostAutomationSupported())
-                {
-                    aspNetProcess.VisitInBrowser(Browser);
-                    TestBasicNavigation(visitFetchData);
-                }
-            }
+            File.WriteAllText(Path.Combine(Project.TemplatePublishDir, "appsettings.json"), testAppSettings);
         }
 
         private void TestBasicNavigation(bool visitFetchData)
@@ -162,7 +168,7 @@ namespace Templates.Test.SpaTemplateTest
                 var fetchDataComponent = Browser.FindElement("h1").Parent();
                 Browser.WaitForElement("table>tbody>tr");
                 var table = Browser.FindElement(fetchDataComponent, "table", timeoutSeconds: 5);
-                Assert.Equal(5, table.FindElements(By.CssSelector("tbody tr")).Count); 
+                Assert.Equal(5, table.FindElements(By.CssSelector("tbody tr")).Count);
             }
         }
     }

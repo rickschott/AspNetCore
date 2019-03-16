@@ -56,8 +56,8 @@ namespace Templates.Test
         [MemberData(nameof(TemplateBaselines))]
         public void Template_Produces_The_Right_Set_Of_Files(string arguments, string[] expectedFiles)
         {
-            Project = ProjectFactory.CreateProject(SanitizeArgs(arguments), Output);
-            Project.RunDotNet(arguments);
+            Project = ProjectFactory.CreateProject("baseline" + SanitizeArgs(arguments), Output);
+            Project.RunDotNetNewRaw(arguments);
             foreach (var file in expectedFiles)
             {
                 Project.AssertFileExists(file, shouldExist: true);
@@ -82,11 +82,11 @@ namespace Templates.Test
 
         private string SanitizeArgs(string arguments)
         {
-            
+
             var text = Regex.Match(arguments, "new (?<template>[a-zA-Z]+)").Groups.TryGetValue("template", out var template) ?
                 template.Value : "";
 
-            
+
             text += Regex.Match(arguments, "-au (?<auth>[a-zA-Z]+)").Groups.TryGetValue("auth", out var auth) ?
                 auth.Value : "";
 

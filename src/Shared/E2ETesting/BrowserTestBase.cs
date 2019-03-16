@@ -18,7 +18,7 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public BrowserTestBase(BrowserFixture browserFixture, ITestOutputHelper output)
         {
-            Fixture = browserFixture;
+            BrowserFixture = browserFixture;
             _output.Value = output;
         }
 
@@ -30,7 +30,7 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public static ITestOutputHelper Output => _output.Value;
 
-        public BrowserFixture Fixture { get; }
+        public BrowserFixture BrowserFixture { get; }
 
         public Task DisposeAsync()
         {
@@ -40,7 +40,7 @@ namespace Microsoft.AspNetCore.E2ETesting
 
         public virtual async Task InitializeAsync()
         {
-            var (browser, logs) = await Fixture.GetOrCreateBrowserAsync(Output);
+            var (browser, logs) = await BrowserFixture.GetOrCreateBrowserAsync(Output);
             _asyncBrowser.Value = browser;
             _logs.Value = logs;
 

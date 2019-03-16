@@ -102,4 +102,14 @@
     </ItemGroup>
   </Target>
 
+  <Target Name="_AddProcessTrackingMetadataAttribute" BeforeTargets="BeforeCompile">
+    <ItemGroup>
+      <AssemblyAttribute
+        Include="System.Reflection.AssemblyMetadataAttribute">
+        <_Parameter1>Microsoft.AspNetCore.Testing.Selenium.ProcessTracking</_Parameter1>
+        <_Parameter2>$(SeleniumProcessTrackingFolder)</_Parameter2>
+      </AssemblyAttribute>
+    </ItemGroup>
+  </Target>
+
 </Project>
