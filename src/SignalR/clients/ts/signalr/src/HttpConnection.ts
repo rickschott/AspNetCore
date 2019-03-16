@@ -425,7 +425,7 @@ export class HttpConnection implements IConnection {
         let previousRetryCount = 0;
         let nextRetryDelay = reconnectPolicy.nextRetryDelayInMilliseconds(previousRetryCount++, 0);
 
-        if (nextRetryDelay == null) {
+        if (nextRetryDelay === null) {
             this.logger.log(LogLevel.Information, "Connection not reconnecting because of the IReconnectPolicy.");
             this.stopConnection(error);
             return;
