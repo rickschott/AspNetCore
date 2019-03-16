@@ -17,8 +17,6 @@ using Microsoft.Extensions.Internal;
 using Xunit;
 using Xunit.Abstractions;
 
-[assembly: AssemblyFixture(typeof(SeleniumStandaloneServer))]
-
 namespace Microsoft.AspNetCore.E2ETesting
 {
     public class SeleniumStandaloneServer : IDisposable
@@ -49,7 +47,6 @@ namespace Microsoft.AspNetCore.E2ETesting
             Uri = uri;
             _process = process;
             _sentinelPath = sentinelPath;
-            Instance = this;
         }
 
         public Uri Uri { get; private set; }
@@ -61,6 +58,10 @@ namespace Microsoft.AspNetCore.E2ETesting
             await _semaphore.WaitAsync();
             try
             {
+                if (Instance == null)
+                {
+
+                }
                 if (Instance._process == null)
                 {
                     // No process was started, meaning the instance wasn't initialized.
