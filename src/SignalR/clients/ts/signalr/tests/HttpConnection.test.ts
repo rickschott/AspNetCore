@@ -146,7 +146,9 @@ describe("HttpConnection", () => {
 
             const connection = new HttpConnection("http://tempuri.org", options);
 
-            await connection.start(TransferFormat.Text);
+            await expect(connection.start(TransferFormat.Text))
+                .rejects
+                .toThrow("The connection was stopped while connecting.");
         });
     });
 

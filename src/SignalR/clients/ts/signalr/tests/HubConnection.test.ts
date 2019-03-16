@@ -1240,6 +1240,8 @@ class TestConnection implements IConnection {
 
     public onreceive: ((data: string | ArrayBuffer) => void) | null;
     public onclose: ((error?: Error) => void) | null;
+    public onreconnecting: ((e?: Error | undefined) => void) | null;
+    public onreconnected: (() => void) | null;
     public sentData: any[];
     public lastInvocationId: string | null;
 
@@ -1248,6 +1250,8 @@ class TestConnection implements IConnection {
     constructor(autoHandshake: boolean = true) {
         this.onreceive = null;
         this.onclose = null;
+        this.onreconnecting = null;
+        this.onreconnected = null;
         this.sentData = [];
         this.lastInvocationId = null;
         this.autoHandshake = autoHandshake;
@@ -1280,6 +1284,10 @@ class TestConnection implements IConnection {
             this.onclose(error);
         }
         return Promise.resolve();
+    }
+
+    public connectionLost(error: Error): Promise<void> {
+        return this.stop(error);
     }
 
     public receiveHandshakeResponse(error?: string): void {
