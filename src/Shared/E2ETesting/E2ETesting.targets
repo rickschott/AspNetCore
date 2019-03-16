@@ -103,6 +103,7 @@
   </Target>
 
   <Target Name="_AddProcessTrackingMetadataAttribute" BeforeTargets="BeforeCompile">
+    <MakeDir Directories="$(SeleniumProcessTrackingFolder)" />
     <ItemGroup>
       <AssemblyAttribute
         Include="System.Reflection.AssemblyMetadataAttribute">

@@ -12,31 +12,59 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.E2ETesting;
 using Microsoft.Extensions.Internal;
+using Xunit;
 using Xunit.Abstractions;
+
+[assembly: AssemblyFixture(typeof(SeleniumStandaloneServer))]
 
 namespace Microsoft.AspNetCore.E2ETesting
 {
-    class SeleniumStandaloneServer
+    public class SeleniumStandaloneServer : IDisposable
     {
-        private static SeleniumStandaloneServer _instance = null;
         private static SemaphoreSlim _semaphore = new SemaphoreSlim(1);
 
-        public SeleniumStandaloneServer(Uri uri)
+        private Process _process;
+        private string _sentinelPath;
+
+        public SeleniumStandaloneServer()
         {
-            Uri = uri;
+            if (Instance != null)
+            {
+                throw new InvalidOperationException("Selenium standalone singleton already created.");
+            }
+
+            // The assembly level attribute AssemblyFixture takes care of this being being instantiated before tests run
+            // and disposed after tests are run, gracefully shutting down the server when possible by calling Dispose on
+            // the singleton.
+            Instance = this;
         }
 
-        public Uri Uri { get; }
+        private void Initialize(
+            Uri uri,
+            Process process,
+            string sentinelPath)
+        {
+            Uri = uri;
+            _process = process;
+            _sentinelPath = sentinelPath;
+            Instance = this;
+        }
+
+        public Uri Uri { get; private set; }
+
+        internal static SeleniumStandaloneServer Instance { get; private set; }
 
         public static async Task<SeleniumStandaloneServer> GetInstanceAsync(ITestOutputHelper output)
         {
             await _semaphore.WaitAsync();
             try
             {
-                if (_instance == null)
+                if (Instance._process == null)
                 {
-                    _instance = await CreateInstance(output);
+                    // No process was started, meaning the instance wasn't initialized.
+                    await InitializeInstance(output);
                 }
             }
             finally
@@ -44,10 +72,10 @@ namespace Microsoft.AspNetCore.E2ETesting
                 _semaphore.Release();
             }
 
-            return _instance;
+            return Instance;
         }
 
-        private static async Task<SeleniumStandaloneServer> CreateInstance(ITestOutputHelper output)
+        private static async Task InitializeInstance(ITestOutputHelper output)
         {
             var port = FindAvailablePort();
             var uri = new UriBuilder("http", "localhost", port, "/wd/hub").Uri;
@@ -75,7 +103,7 @@ namespace Microsoft.AspNetCore.E2ETesting
             }
 
             var process = Process.Start(psi);
-            await WriteTrackingFileAsync(output, trackingFolder, process);
+            var pidFilePath = await WriteTrackingFileAsync(output, trackingFolder, process);
 
             process.OutputDataReceived += LogOutput;
             process.ErrorDataReceived += LogOutput;
@@ -84,20 +112,16 @@ namespace Microsoft.AspNetCore.E2ETesting
             process.BeginErrorReadLine();
 
             // The Selenium sever has to be up for the entirety of the tests and is only shutdown when the application (i.e. the test) exits.
-            AppDomain.CurrentDomain.ProcessExit += (sender, e) =>
-            {
-                if (!process.HasExited)
-                {
-                    process.KillTree(TimeSpan.FromSeconds(10));
-                    process.Dispose();
-                }
-            };
-
+            AppDomain.CurrentDomain.ProcessExit += (sender, args) => ProcessCleanup(process, pidFilePath);
             void LogOutput(object sender, DataReceivedEventArgs e)
             {
                 lock (output)
                 {
-                    output.WriteLine(e.Data);
+                    // Check for e.Data being null as this can happen when the process is shutdown during dispose.
+                    if (e.Data != null)
+                    {
+                        output.WriteLine(e.Data);
+                    }
                 }
             }
 
@@ -115,7 +139,8 @@ namespace Microsoft.AspNetCore.E2ETesting
                     var response = await httpClient.GetAsync(uri);
                     if (response.StatusCode == HttpStatusCode.OK)
                     {
-                        return new SeleniumStandaloneServer(uri);
+                        Instance.Initialize(uri, process, pidFilePath);
+                        return;
                     }
                 }
                 catch (OperationCanceledException)
@@ -125,10 +150,37 @@ namespace Microsoft.AspNetCore.E2ETesting
                 retries++;
             } while (retries < 30);
 
+            // If we got here, we couldn't launch Selenium or get it to respond. So shut it down.
+            ProcessCleanup(process, pidFilePath);
             throw new Exception("Failed to launch the server");
         }
 
-        private static async Task WriteTrackingFileAsync(ITestOutputHelper output, string trackingFolder, Process process)
+        private static void ProcessCleanup(Process process, string pidFilePath)
+        {
+            if (process?.HasExited == false)
+            {
+                try
+                {
+                    process?.KillTree(TimeSpan.FromSeconds(10));
+                    process?.Dispose();
+                }
+                catch
+                {
+                }
+            }
+            try
+            {
+                if (pidFilePath != null && File.Exists(pidFilePath))
+                {
+                    File.Delete(pidFilePath);
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        private static async Task<string> WriteTrackingFileAsync(ITestOutputHelper output, string trackingFolder, Process process)
         {
             var pidFile = Path.Combine(trackingFolder, $"{process.Id}.{Guid.NewGuid()}.pid");
             for (var i = 0; i < 3; i++)
@@ -136,7 +188,7 @@ namespace Microsoft.AspNetCore.E2ETesting
                 try
                 {
                     await File.WriteAllTextAsync(pidFile, process.Id.ToString());
-                    return;
+                    return pidFile;
                 }
                 catch
                 {
@@ -166,5 +218,10 @@ namespace Microsoft.AspNetCore.E2ETesting
             typeof(SeleniumStandaloneServer).Assembly
                 .GetCustomAttributes<AssemblyMetadataAttribute>()
                 .Single(a => a.Key == "Microsoft.AspNetCore.Testing.Selenium.ProcessTracking").Value;
+
+        public void Dispose()
+        {
+            ProcessCleanup(_process, _sentinelPath);
+        }
     }
 }
