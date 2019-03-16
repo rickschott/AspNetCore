@@ -26,7 +26,7 @@ namespace Templates.Test
         [Fact]
         public async Task RazorPagesTemplate_NoAuthImplAsync()
         {
-            Project = ProjectFactory.GetOrCreateProject("razorpagesnoauth", Output);
+            Project = await ProjectFactory.GetOrCreateProject("razorpagesnoauth", Output);
 
             var createResult = await Project.RunDotNetNewAsync("razor");
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
@@ -68,7 +68,7 @@ namespace Templates.Test
         [InlineData(true)]
         public async Task RazorPagesTemplate_IndividualAuthImplAsync(bool useLocalDB)
         {
-            Project = ProjectFactory.GetOrCreateProject("razorpagesindividual" + (useLocalDB ? "uld" : ""), Output);
+            Project = await ProjectFactory.GetOrCreateProject("razorpagesindividual" + (useLocalDB ? "uld" : ""), Output);
 
             var createResult = await Project.RunDotNetNewAsync("razor", auth: "Individual", useLocalDB: useLocalDB);
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());

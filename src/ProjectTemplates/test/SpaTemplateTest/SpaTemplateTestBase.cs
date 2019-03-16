@@ -17,7 +17,6 @@ using Xunit.Abstractions;
 #if EDGE
 [assembly: CollectionBehavior(CollectionBehavior.CollectionPerAssembly)]
 #endif
-[assembly: TestFramework("Microsoft.AspNetCore.E2ETesting.XunitTestFrameworkWithAssemblyFixture", "ProjectTemplates.Tests")]
 namespace Templates.Test.SpaTemplateTest
 {
     public class SpaTemplateTestBase : BrowserTestBase
@@ -41,7 +40,7 @@ namespace Templates.Test.SpaTemplateTest
             bool useLocalDb = false,
             bool usesAuth = false)
         {
-            Project = ProjectFactory.GetOrCreateProject(key, Output);
+            Project = await ProjectFactory.GetOrCreateProject(key, Output);
 
             var createResult = await Project.RunDotNetNewAsync(template, auth: usesAuth ? "Individual" : null, language: null, useLocalDb);
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
@@ -59,7 +58,7 @@ namespace Templates.Test.SpaTemplateTest
                 Assert.Contains(".db", projectFileContents);
             }
 
-            var npmRestoreResult = await Npm.RestoreWithRetryAsync(Output, clientAppSubdirPath);
+            var npmRestoreResult = await Project.RestoreWithRetryAsync(Output, clientAppSubdirPath);
             Assert.True(0 == npmRestoreResult.ExitCode, npmRestoreResult.GetFormattedOutput());
 
             var lintResult = await ProcessEx.RunViaShellAsync(Output, clientAppSubdirPath, "npm run lint");

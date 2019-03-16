@@ -57,7 +57,7 @@ namespace Templates.Test
         [MemberData(nameof(TemplateBaselines))]
         public async Task Template_Produces_The_Right_Set_Of_FilesAsync(string arguments, string[] expectedFiles)
         {
-            Project = ProjectFactory.GetOrCreateProject("baseline" + SanitizeArgs(arguments), Output);
+            Project = await ProjectFactory.GetOrCreateProject("baseline" + SanitizeArgs(arguments), Output);
             var createResult = await Project.RunDotNetNewRawAsync(arguments);
             Assert.True(createResult.ExitCode == 0, createResult.GetFormattedOutput());
 

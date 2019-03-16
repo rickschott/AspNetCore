@@ -1,3 +1,6 @@
+// Copyright (c) .NET Foundation. All rights reserved.
+// Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -14,10 +17,7 @@ namespace Templates.Test.Helpers
 {
     internal class ProcessEx : IDisposable
     {
-        private static readonly string NUGET_PACKAGES = typeof(ProcessEx).Assembly
-            .GetCustomAttributes<AssemblyMetadataAttribute>()
-            .First(attribute => attribute.Key == "TestPackageRestorePath")
-            .Value;
+        private static readonly string NUGET_PACKAGES = GetNugetPackagesRestorePath();
 
         private readonly ITestOutputHelper _output;
         private readonly Process _process;
@@ -26,63 +26,6 @@ namespace Templates.Test.Helpers
         private readonly object _pipeCaptureLock = new object();
         private BlockingCollection<string> _stdoutLines;
         private TaskCompletionSource<int> _exited;
-
-        internal string GetFormattedOutput()
-        {
-            if (!_process.HasExited)
-            {
-                throw new InvalidOperationException("Process has not finished running.");
-            }
-
-            return $"Process exited with code {_process.ExitCode}\nStdErr: {Error}\nStdOut: {Output}";
-        }
-
-        public static ProcessEx Run(ITestOutputHelper output, string workingDirectory, string command, string args = null, IDictionary<string, string> envVars = null)
-        {
-            var startInfo = new ProcessStartInfo(command, args)
-            {
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                WorkingDirectory = workingDirectory
-            };
-
-            if (envVars != null)
-            {
-                foreach (var envVar in envVars)
-                {
-                    startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
-                }
-            }
-
-            startInfo.EnvironmentVariables["NUGET_PACKAGES"] = NUGET_PACKAGES;
-
-            output.WriteLine($"==> {startInfo.FileName} {startInfo.Arguments} [{startInfo.WorkingDirectory}]");
-            var proc = Process.Start(startInfo);
-
-            return new ProcessEx(output, proc);
-        }
-
-        public static void RunViaShell(ITestOutputHelper output, string workingDirectory, string commandAndArgs)
-        {
-            var (shellExe, argsPrefix) = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? ("cmd", "/c")
-                : ("bash", "-c");
-            Run(output, workingDirectory, shellExe, $"{argsPrefix} \"{commandAndArgs}\"")
-                .WaitForExit(assertSuccess: true);
-        }
-
-        public static async Task<ProcessEx> RunViaShellAsync(ITestOutputHelper output, string workingDirectory, string commandAndArgs)
-        {
-            var (shellExe, argsPrefix) = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
-                ? ("cmd", "/c")
-                : ("bash", "-c");
-
-            var result = Run(output, workingDirectory, shellExe, $"{argsPrefix} \"{commandAndArgs}\"");
-            await result.Exited;
-            return result;
-        }
 
         public ProcessEx(ITestOutputHelper output, Process proc)
         {
@@ -126,7 +69,47 @@ namespace Templates.Test.Helpers
             }
         }
 
+        public IEnumerable<string> OutputLinesAsEnumerable => _stdoutLines.GetConsumingEnumerable();
+
         public int ExitCode => _process.ExitCode;
+
+        public static ProcessEx Run(ITestOutputHelper output, string workingDirectory, string command, string args = null, IDictionary<string, string> envVars = null)
+        {
+            var startInfo = new ProcessStartInfo(command, args)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                WorkingDirectory = workingDirectory
+            };
+
+            if (envVars != null)
+            {
+                foreach (var envVar in envVars)
+                {
+                    startInfo.EnvironmentVariables[envVar.Key] = envVar.Value;
+                }
+            }
+
+            startInfo.EnvironmentVariables["NUGET_PACKAGES"] = NUGET_PACKAGES;
+
+            output.WriteLine($"==> {startInfo.FileName} {startInfo.Arguments} [{startInfo.WorkingDirectory}]");
+            var proc = Process.Start(startInfo);
+
+            return new ProcessEx(output, proc);
+        }
+
+        public static async Task<ProcessEx> RunViaShellAsync(ITestOutputHelper output, string workingDirectory, string commandAndArgs)
+        {
+            var (shellExe, argsPrefix) = RuntimeInformation.IsOSPlatform(OSPlatform.Windows)
+                ? ("cmd", "/c")
+                : ("bash", "-c");
+
+            var result = Run(output, workingDirectory, shellExe, $"{argsPrefix} \"{commandAndArgs}\"");
+            await result.Exited;
+            return result;
+        }
 
         private void OnErrorData(object sender, DataReceivedEventArgs e)
         {
@@ -171,6 +154,16 @@ namespace Templates.Test.Helpers
             _exited.TrySetResult(_process.ExitCode);
         }
 
+        internal string GetFormattedOutput()
+        {
+            if (!_process.HasExited)
+            {
+                throw new InvalidOperationException("Process has not finished running.");
+            }
+
+            return $"Process exited with code {_process.ExitCode}\nStdErr: {Error}\nStdOut: {Output}";
+        }
+
         public void WaitForExit(bool assertSuccess)
         {
             Exited.Wait();
@@ -180,6 +173,12 @@ namespace Templates.Test.Helpers
                 throw new Exception($"Process exited with code {_process.ExitCode}\nStdErr: {Error}\nStdOut: {Output}");
             }
         }
+
+        private static string GetNugetPackagesRestorePath() =>
+            typeof(ProcessEx).Assembly
+                .GetCustomAttributes<AssemblyMetadataAttribute>()
+                .First(attribute => attribute.Key == "TestPackageRestorePath")
+                .Value;
 
         public void Dispose()
         {
@@ -196,7 +195,5 @@ namespace Templates.Test.Helpers
             _process.Exited -= OnProcessExited;
             _process.Dispose();
         }
-
-        public IEnumerable<string> OutputLinesAsEnumerable => _stdoutLines.GetConsumingEnumerable();
     }
 }

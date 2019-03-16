@@ -29,7 +29,7 @@ namespace Templates.Test
         [Fact(Skip = "https://github.com/aspnet/AspNetCore/issues/8244")]
         public async Task RazorComponentsTemplateWorksAsync()
         {
-            Project = ProjectFactory.GetOrCreateProject("razorcomponents", Output);
+            Project = await ProjectFactory.GetOrCreateProject("razorcomponents", Output);
 
             var createResult = await Project.RunDotNetNewAsync("razorcomponents");
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());

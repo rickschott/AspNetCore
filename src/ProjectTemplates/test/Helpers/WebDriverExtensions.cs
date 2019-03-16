@@ -33,10 +33,6 @@ namespace Templates.Test.Helpers
                 .Perform();
         }
 
-        public static void Click(this IWebDriver driver, string cssSelector)
-        {
-            Click(driver, null, cssSelector);
-        }
 
         public static void Click(this IWebDriver driver, ISearchContext searchContext, string cssSelector)
         {
@@ -53,19 +49,9 @@ namespace Templates.Test.Helpers
             return webElement.FindElement(By.XPath(".."));
         }
 
-        public static IWebElement FindElement(this IWebDriver driver, string cssSelector, int timeoutSeconds)
-        {
-            return FindElement(driver, null, cssSelector, timeoutSeconds);
-        }
-
         public static IWebElement FindElement(this IWebDriver driver, ISearchContext searchContext, string cssSelector, int timeoutSeconds)
         {
             return FindElement(driver, searchContext, By.CssSelector(cssSelector), timeoutSeconds);
-        }
-
-        public static IWebElement FindElement(this IWebDriver driver, By by, int timeoutSeconds)
-        {
-            return FindElement(driver, null, by, timeoutSeconds);
         }
 
         public static IWebElement FindElement(this IWebDriver driver, ISearchContext searchContext, By by, int timeoutSeconds)

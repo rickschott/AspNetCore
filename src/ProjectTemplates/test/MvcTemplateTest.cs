@@ -27,7 +27,7 @@ namespace Templates.Test
         [InlineData("F#")]
         public async Task MvcTemplate_NoAuthImplAsync(string languageOverride)
         {
-            Project = ProjectFactory.GetOrCreateProject("mvcnoauth" + (languageOverride == "F#" ? "fsharp" : "csharp"), Output);
+            Project = await ProjectFactory.GetOrCreateProject("mvcnoauth" + (languageOverride == "F#" ? "fsharp" : "csharp"), Output);
 
             var createResult = await Project.RunDotNetNewAsync("mvc", language: languageOverride);
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
@@ -73,7 +73,7 @@ namespace Templates.Test
         [InlineData(false)]
         public async Task MvcTemplate_IndividualAuthImplAsync(bool useLocalDB)
         {
-            Project = ProjectFactory.GetOrCreateProject("mvcindividual" + (useLocalDB ? "uld" : ""), Output);
+            Project = await ProjectFactory.GetOrCreateProject("mvcindividual" + (useLocalDB ? "uld" : ""), Output);
 
             var createResult = await Project.RunDotNetNewAsync("mvc", auth: "Individual", useLocalDB: useLocalDB);
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());

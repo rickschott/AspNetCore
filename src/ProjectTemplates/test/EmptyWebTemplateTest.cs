@@ -25,7 +25,7 @@ namespace Templates.Test
         [Fact]
         public async Task EmptyWebTemplateAsync()
         {
-            Project = ProjectFactory.GetOrCreateProject("empty", Output);
+            Project = await ProjectFactory.GetOrCreateProject("empty", Output);
 
             var createResult = await Project.RunDotNetNewAsync("web");
 

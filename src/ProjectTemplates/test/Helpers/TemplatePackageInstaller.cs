@@ -5,6 +5,8 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Microsoft.Extensions.CommandLineUtils;
 using Xunit;
 using Xunit.Abstractions;
@@ -13,10 +15,8 @@ namespace Templates.Test.Helpers
 {
     internal static class TemplatePackageInstaller
     {
-        private static object _templatePackagesReinstallationLock = new object();
+        private static SemaphoreSlim InstallerLock = new SemaphoreSlim(1);
         private static bool _haveReinstalledTemplatePackages;
-
-        private static object DotNetNewLock = new object();
 
         private static readonly string[] _templatePackages = new[]
         {
@@ -39,9 +39,10 @@ namespace Templates.Test.Helpers
             .Assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
             .Single(s => s.Key == "CustomTemplateHivePath").Value;
 
-        public static void EnsureTemplatingEngineInitialized(ITestOutputHelper output)
+        public static async Task EnsureTemplatingEngineInitializedAsync(ITestOutputHelper output)
         {
-            lock (_templatePackagesReinstallationLock)
+            await InstallerLock.WaitAsync();
+            try
             {
                 if (!_haveReinstalledTemplatePackages)
                 {
@@ -49,28 +50,29 @@ namespace Templates.Test.Helpers
                     {
                         Directory.Delete(CustomHivePath, recursive: true);
                     }
-                    InstallTemplatePackages(output);
+                    await InstallTemplatePackages(output);
                     _haveReinstalledTemplatePackages = true;
                 }
             }
-        }
-
-        public static ProcessEx RunDotNetNew(ITestOutputHelper output, string arguments, bool assertSuccess)
-        {
-            lock (DotNetNewLock)
+            finally
             {
-                var proc = ProcessEx.Run(
-                    output,
-                    AppContext.BaseDirectory,
-                    DotNetMuxer.MuxerPathOrDefault(),
-                    $"new {arguments} --debug:custom-hive \"{CustomHivePath}\"");
-                proc.WaitForExit(assertSuccess);
-
-                return proc;
+                InstallerLock.Release();
             }
         }
 
-        private static void InstallTemplatePackages(ITestOutputHelper output)
+        public static async Task<ProcessEx> RunDotNetNew(ITestOutputHelper output, string arguments)
+        {
+            var proc = ProcessEx.Run(
+            output,
+            AppContext.BaseDirectory,
+            DotNetMuxer.MuxerPathOrDefault(),
+            $"new {arguments} --debug:custom-hive \"{CustomHivePath}\"");
+            await proc.Exited;
+
+            return proc;
+        }
+
+        private static async Task InstallTemplatePackages(ITestOutputHelper output)
         {
             var builtPackages = Directory.EnumerateFiles(
                     typeof(TemplatePackageInstaller).Assembly
@@ -88,36 +90,38 @@ namespace Templates.Test.Helpers
                 // We don't need this command to succeed, because we'll verify next that
                 // uninstallation had the desired effect. This command is expected to fail
                 // in the case where the package wasn't previously installed.
-                RunDotNetNew(output, $"--uninstall {packageName}", assertSuccess: false);
+                await RunDotNetNew(output, $"--uninstall {packageName}");
             }
 
-            VerifyCannotFindTemplate(output, "web");
-            VerifyCannotFindTemplate(output, "webapp");
-            VerifyCannotFindTemplate(output, "mvc");
-            VerifyCannotFindTemplate(output, "react");
-            VerifyCannotFindTemplate(output, "reactredux");
-            VerifyCannotFindTemplate(output, "angular");
+            await VerifyCannotFindTemplateAsync(output, "web");
+            await VerifyCannotFindTemplateAsync(output, "webapp");
+            await VerifyCannotFindTemplateAsync(output, "mvc");
+            await VerifyCannotFindTemplateAsync(output, "react");
+            await VerifyCannotFindTemplateAsync(output, "reactredux");
+            await VerifyCannotFindTemplateAsync(output, "angular");
 
             foreach (var packagePath in builtPackages)
             {
                 output.WriteLine($"Installing templates package {packagePath}...");
-                RunDotNetNew(output, $"--install \"{packagePath}\"", assertSuccess: true);
+                var result = await RunDotNetNew(output, $"--install \"{packagePath}\"");
+                Assert.True(result.ExitCode == 0, result.GetFormattedOutput());
             }
-            VerifyCanFindTemplate(output, "webapp");
-            VerifyCanFindTemplate(output, "web");
-            VerifyCanFindTemplate(output, "react");
+
+            await VerifyCanFindTemplate(output, "webapp");
+            await VerifyCanFindTemplate(output, "web");
+            await VerifyCanFindTemplate(output, "react");
         }
 
-        private static void VerifyCanFindTemplate(ITestOutputHelper output, string templateName)
+        private static async Task VerifyCanFindTemplate(ITestOutputHelper output, string templateName)
         {
-            var proc = RunDotNetNew(output, $"", assertSuccess: false);
+            var proc = await RunDotNetNew(output, $"");
             if (!proc.Output.Contains($" {templateName} "))
             {
                 throw new InvalidOperationException($"Couldn't find {templateName} as an option in {proc.Output}.");
             }
         }
 
-        private static void VerifyCannotFindTemplate(ITestOutputHelper output, string templateName)
+        private static async Task VerifyCannotFindTemplateAsync(ITestOutputHelper output, string templateName)
         {
             // Verify we really did remove the previous templates
             var tempDir = Path.Combine(AppContext.BaseDirectory, Path.GetRandomFileName(), Guid.NewGuid().ToString("D"));
@@ -125,7 +129,7 @@ namespace Templates.Test.Helpers
 
             try
             {
-                var proc = RunDotNetNew(output, $"\"{templateName}\"", assertSuccess: false);
+                var proc = await RunDotNetNew(output, $"\"{templateName}\"");
 
                 if (!proc.Error.Contains($"No templates matched the input template name: {templateName}."))
                 {
