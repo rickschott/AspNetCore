@@ -1,8 +1,8 @@
 // Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
+using System.IO;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Testing.xunit;
 using ProjectTemplates.Tests.Helpers;
 using Xunit;
 using Xunit.Abstractions;
@@ -26,14 +26,14 @@ namespace Templates.Test
         [Fact]
         public async Task RazorPagesTemplate_NoAuthImplAsync()
         {
-            Project = ProjectFactory.CreateProject("razorpagesnoauth", Output);
+            Project = ProjectFactory.GetOrCreateProject("razorpagesnoauth", Output);
 
             var createResult = await Project.RunDotNetNewAsync("razor");
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
 
-            Project.AssertFileExists("Pages/Shared/_LoginPartial.cshtml", false);
+            AssertFileExists(Project.TemplateOutputDir, "Pages/Shared/_LoginPartial.cshtml", false);
 
-            var projectFileContents = Project.ReadFile($"{Project.ProjectName}.csproj");
+            var projectFileContents = ReadFile(Project.TemplateOutputDir, $"{Project.ProjectName}.csproj");
             Assert.DoesNotContain(".db", projectFileContents);
             Assert.DoesNotContain("Microsoft.EntityFrameworkCore.Tools", projectFileContents);
             Assert.DoesNotContain("Microsoft.VisualStudio.Web.CodeGeneration.Design", projectFileContents);
@@ -68,14 +68,14 @@ namespace Templates.Test
         [InlineData(true)]
         public async Task RazorPagesTemplate_IndividualAuthImplAsync(bool useLocalDB)
         {
-            Project = ProjectFactory.CreateProject("razorpagesindividual" + (useLocalDB ? "uld" : ""), Output);
+            Project = ProjectFactory.GetOrCreateProject("razorpagesindividual" + (useLocalDB ? "uld" : ""), Output);
 
             var createResult = await Project.RunDotNetNewAsync("razor", auth: "Individual", useLocalDB: useLocalDB);
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
 
-            Project.AssertFileExists("Pages/Shared/_LoginPartial.cshtml", true);
+            AssertFileExists(Project.TemplateOutputDir, "Pages/Shared/_LoginPartial.cshtml", true);
 
-            var projectFileContents = Project.ReadFile($"{Project.ProjectName}.csproj");
+            var projectFileContents = ReadFile(Project.TemplateOutputDir, $"{Project.ProjectName}.csproj");
             if (!useLocalDB)
             {
                 Assert.Contains(".db", projectFileContents);
@@ -108,6 +108,27 @@ namespace Templates.Test
                 await aspNetProcess.AssertOk("/Identity/Account/Login");
                 await aspNetProcess.AssertOk("/Privacy");
             }
+        }
+
+        private void AssertFileExists(string basePath, string path, bool shouldExist)
+        {
+            var fullPath = Path.Combine(basePath, path);
+            var doesExist = File.Exists(fullPath);
+
+            if (shouldExist)
+            {
+                Assert.True(doesExist, "Expected file to exist, but it doesn't: " + path);
+            }
+            else
+            {
+                Assert.False(doesExist, "Expected file not to exist, but it does: " + path);
+            }
+        }
+
+        private string ReadFile(string basePath, string path)
+        {
+            AssertFileExists(basePath, path, shouldExist: true);
+            return File.ReadAllText(Path.Combine(basePath, path));
         }
     }
 }

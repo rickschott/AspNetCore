@@ -19,44 +19,12 @@ namespace Templates.Test.Helpers
 {
     public class AspNetProcess : IDisposable
     {
-        public const string DefaultFramework = "netcoreapp3.0";
         private const string ListeningMessagePrefix = "Now listening on: ";
 
         private readonly ProcessEx _process;
         private readonly Uri _listeningUri;
         private readonly HttpClient _httpClient;
         private readonly ITestOutputHelper _output;
-
-        public AspNetProcess(ITestOutputHelper output, string workingDirectory, string projectName, bool publish)
-        {
-            _output = output;
-            _httpClient = new HttpClient(new HttpClientHandler()
-            {
-                AllowAutoRedirect = true,
-                UseCookies = true,
-                CookieContainer = new CookieContainer(),
-                ServerCertificateCustomValidationCallback = (m, c, ch, p) => true
-            });
-
-            var now = DateTimeOffset.Now;
-            new CertificateManager().EnsureAspNetCoreHttpsDevelopmentCertificate(now, now.AddYears(1));
-
-            var envVars = new Dictionary<string, string>
-            {
-                { "ASPNETCORE_URLS", $"http://127.0.0.1:0;https://127.0.0.1:0" }
-            };
-
-            if (!publish)
-            {
-                envVars["ASPNETCORE_ENVIRONMENT"] = "Development";
-            }
-
-            output.WriteLine("Running ASP.NET application...");
-
-            var dllPath = publish ? $"{projectName}.dll" : $"bin/Debug/{DefaultFramework}/{projectName}.dll";
-            _process = ProcessEx.Run(output, workingDirectory, DotNetMuxer.MuxerPathOrDefault(), $"exec {dllPath}", envVars: envVars);
-            _listeningUri = GetListeningUri(output);
-        }
 
         public AspNetProcess(
             ITestOutputHelper output,

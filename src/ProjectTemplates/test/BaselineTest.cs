@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using ProjectTemplates.Tests.Helpers;
@@ -54,13 +55,15 @@ namespace Templates.Test
 
         [Theory]
         [MemberData(nameof(TemplateBaselines))]
-        public void Template_Produces_The_Right_Set_Of_Files(string arguments, string[] expectedFiles)
+        public async Task Template_Produces_The_Right_Set_Of_FilesAsync(string arguments, string[] expectedFiles)
         {
-            Project = ProjectFactory.CreateProject("baseline" + SanitizeArgs(arguments), Output);
-            Project.RunDotNetNewRaw(arguments);
+            Project = ProjectFactory.GetOrCreateProject("baseline" + SanitizeArgs(arguments), Output);
+            var createResult = await Project.RunDotNetNewRawAsync(arguments);
+            Assert.True(createResult.ExitCode == 0, createResult.GetFormattedOutput());
+
             foreach (var file in expectedFiles)
             {
-                Project.AssertFileExists(file, shouldExist: true);
+                AssertFileExists(Project.TemplateOutputDir, file, shouldExist: true);
             }
 
             var filesInFolder = Directory.EnumerateFiles(Project.TemplateOutputDir, "*", SearchOption.AllDirectories);
@@ -96,6 +99,21 @@ namespace Templates.Test
                 language.Value.Replace("#", "Sharp") : "";
 
             return text;
+        }
+
+        private void AssertFileExists(string basePath, string path, bool shouldExist)
+        {
+            var fullPath = Path.Combine(basePath, path);
+            var doesExist = File.Exists(fullPath);
+
+            if (shouldExist)
+            {
+                Assert.True(doesExist, "Expected file to exist, but it doesn't: " + path);
+            }
+            else
+            {
+                Assert.False(doesExist, "Expected file not to exist, but it does: " + path);
+            }
         }
     }
 }

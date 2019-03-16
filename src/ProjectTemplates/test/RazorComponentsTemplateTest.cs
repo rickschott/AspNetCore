@@ -29,18 +29,34 @@ namespace Templates.Test
         [Fact(Skip = "https://github.com/aspnet/AspNetCore/issues/8244")]
         public async Task RazorComponentsTemplateWorksAsync()
         {
-            Project = ProjectFactory.CreateProject("razorcomponents", Output);
-            Project.RunDotNetNew("razorcomponents");
-            await TestApplicationAsync(publish: false);
-            await TestApplicationAsync(publish: true);
-        }
+            Project = ProjectFactory.GetOrCreateProject("razorcomponents", Output);
 
-        private async Task TestApplicationAsync(bool publish)
-        {
-            using (var aspNetProcess = Project.StartAspNetProcess(publish))
+            var createResult = await Project.RunDotNetNewAsync("razorcomponents");
+            Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
+
+            var publishResult = await Project.RunDotNetPublishAsync();
+            Assert.True(0 == publishResult.ExitCode, publishResult.GetFormattedOutput());
+
+            // Run dotnet build after publish. The reason is that one uses Config = Debug and the other uses Config = Release
+            // The output from publish will go into bin/Release/netcoreapp3.0/publish and won't be affected by calling build
+            // later, while the opposite is not true.
+
+            var buildResult = await Project.RunDotNetBuildAsync();
+            Assert.True(0 == buildResult.ExitCode, buildResult.GetFormattedOutput());
+
+            using (var aspNetProcess = Project.StartBuiltProjectAsync())
             {
                 await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
+                if (BrowserFixture.IsHostAutomationSupported())
+                {
+                    aspNetProcess.VisitInBrowser(Browser);
+                    TestBasicNavigation();
+                }
+            }
 
+            using (var aspNetProcess = Project.StartPublishedProjectAsync())
+            {
+                await aspNetProcess.AssertStatusCode("/", HttpStatusCode.OK, "text/html");
                 if (BrowserFixture.IsHostAutomationSupported())
                 {
                     aspNetProcess.VisitInBrowser(Browser);

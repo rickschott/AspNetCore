@@ -41,7 +41,7 @@ namespace Templates.Test.SpaTemplateTest
             bool useLocalDb = false,
             bool usesAuth = false)
         {
-            Project = ProjectFactory.CreateProject(key, Output);
+            Project = ProjectFactory.GetOrCreateProject(key, Output);
 
             var createResult = await Project.RunDotNetNewAsync(template, auth: usesAuth ? "Individual" : null, language: null, useLocalDb);
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
@@ -53,7 +53,7 @@ namespace Templates.Test.SpaTemplateTest
             var clientAppSubdirPath = Path.Combine(Project.TemplateOutputDir, "ClientApp");
             Assert.True(File.Exists(Path.Combine(clientAppSubdirPath, "package.json")), "Missing a package.json");
 
-            var projectFileContents = Project.ReadFile($"{Project.ProjectName}.csproj");
+            var projectFileContents = ReadFile(Project.TemplateOutputDir, $"{Project.ProjectName}.csproj");
             if (usesAuth && !useLocalDb)
             {
                 Assert.Contains(".db", projectFileContents);
@@ -170,6 +170,27 @@ namespace Templates.Test.SpaTemplateTest
                 var table = Browser.FindElement(fetchDataComponent, "table", timeoutSeconds: 5);
                 Assert.Equal(5, table.FindElements(By.CssSelector("tbody tr")).Count);
             }
+        }
+
+        private void AssertFileExists(string basePath, string path, bool shouldExist)
+        {
+            var fullPath = Path.Combine(basePath, path);
+            var doesExist = File.Exists(fullPath);
+
+            if (shouldExist)
+            {
+                Assert.True(doesExist, "Expected file to exist, but it doesn't: " + path);
+            }
+            else
+            {
+                Assert.False(doesExist, "Expected file not to exist, but it does: " + path);
+            }
+        }
+
+        private string ReadFile(string basePath, string path)
+        {
+            AssertFileExists(basePath, path, shouldExist: true);
+            return File.ReadAllText(Path.Combine(basePath, path));
         }
     }
 }

@@ -25,7 +25,7 @@ namespace Templates.Test
         [Fact]
         public async Task WebApiTemplateAsync()
         {
-            Project = FactoryFixture.CreateProject("webapi", Output);
+            Project = FactoryFixture.GetOrCreateProject("webapi", Output);
 
             var createResult = await Project.RunDotNetNewAsync("webapi");
             Assert.True(0 == createResult.ExitCode, createResult.GetFormattedOutput());
